@@ -1,0 +1,6 @@
+{
+    "files.exclude": {
+        "api": true,
+        "etl": true
+    }
+}

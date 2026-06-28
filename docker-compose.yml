@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: movie-postgres
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+    ports:
+      - "5432:5432"
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d movies"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  api:
+    build:
+      context: ./api
+    container_name: movie-api
+
+    environment:
+      API_USERNAME: ${API_USERNAME}
+      API_PASSWORD: ${API_PASSWORD}
+
+    ports:
+      - "5000:5000"
+
+  etl:
+    build:
+      context: ./etl
+    container_name: movie-etl
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      API_URL: http://api:5000
+
+    command: >
+      sh -c "
+      until curl -f http://api:5000/health; do
+        echo 'Waiting for API...';
+        sleep 2;
+      done;
+      python -m movie_etl
+      "
+
+volumes:
+  postgres_data:
+  

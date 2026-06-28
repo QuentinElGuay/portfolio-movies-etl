@@ -1,0 +1,16 @@
+{
+    "folders": [
+        {
+            "name": "Root",
+            "path": "."
+        },
+        {
+            "name": "API",
+            "path": "api"
+        },
+        {
+            "name": "ETL",
+            "path": "etl"
+        }
+    ]
+}
