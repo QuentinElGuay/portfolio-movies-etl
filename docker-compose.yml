@@ -25,6 +25,12 @@ services:
       context: ./api
     container_name: movie-api
 
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
     environment:
       API_USERNAME: ${API_USERNAME}
       API_PASSWORD: ${API_PASSWORD}
@@ -41,20 +47,11 @@ services:
       postgres:
         condition: service_healthy
       api:
-        condition: service_started
+        condition: service_healthy
 
     environment:
       DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       API_URL: http://api:5000
-
-    command: >
-      sh -c "
-      until curl -f http://api:5000/health; do
-        echo 'Waiting for API...';
-        sleep 2;
-      done;
-      python -m movie_etl
-      "
 
 volumes:
   postgres_data:

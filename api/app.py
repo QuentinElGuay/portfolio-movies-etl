@@ -91,6 +91,14 @@ def get_movie_ratings(idMovie: int):
     return jsonify(ratings), 200
 
 
+@app.route('/health')
+def health():
+    return {'status': 'ok'}, 200
+
+
 if __name__ == '__main__':
-    # Start local server on http://127.0.0.1:5000
-    app.run(debug=True, port=5000)
+    app.run(
+        host='0.0.0.0',
+        port=5000,
+        debug=False,
+    )
