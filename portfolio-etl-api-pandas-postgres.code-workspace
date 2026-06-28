@@ -5,11 +5,11 @@
             "path": "."
         },
         {
-            "name": "API",
+            "name": "api",
             "path": "api"
         },
         {
-            "name": "ETL",
+            "name": "etl",
             "path": "etl"
         }
     ]
