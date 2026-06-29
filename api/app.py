@@ -40,6 +40,13 @@ movies_ratings = {
 
 app = Flask(__name__)
 
+class IgnoreHealthFilter(logging.Filter):
+    def filter(self, record):
+        return '/health' not in record.getMessage()
+
+werkzeug_logger = logging.getLogger("werkzeug")
+werkzeug_logger.addFilter(IgnoreHealthFilter())
+
 
 @app.route('/auth', methods=['POST'])
 def authenticate():

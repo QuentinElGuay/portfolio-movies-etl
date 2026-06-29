@@ -7,7 +7,7 @@ import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 
-from etl.src.movie_etl.api import (
+from movie_etl.api import (
     AUTH_ENDPOINT,
     GENRE_MOVIES_ENDPOINT,
     GENRES_ENDPOINT,
@@ -15,8 +15,8 @@ from etl.src.movie_etl.api import (
     MOVIES_ENDPOINT,
     ApiClient,
 )
-from etl.src.movie_etl.config import Settings
-from etl.src.movie_etl.database import Database
+from movie_etl.config import Settings
+from movie_etl.database import Database
 
 
 handler = logging.StreamHandler(sys.stdout)
@@ -61,7 +61,7 @@ def get_movies(api_client: ApiClient, id_movies: list[dict]) -> list[dict]:
     Returns a list of relations movies returned by the API endpoints.
     """
     movies = [
-        api_client.get_endpoint(MOVIES_ENDPOINT.format(idFilme=id_movie))
+        api_client.get_endpoint(MOVIES_ENDPOINT.format(idMovie=id_movie))
         for id_movie in id_movies
     ]
     logger.info('Downloaded %d movies from endpoint.', len(movies))
@@ -77,7 +77,7 @@ def get_movie_ratings(api_client: ApiClient, id_movies: list[str]) -> list[dict]
         rating
         for id_movie in id_movies
         for rating in api_client.get_endpoint(
-            MOVIE_RATINGS_ENDPOINT.format(idFilme=id_movie)
+            MOVIE_RATINGS_ENDPOINT.format(idMovie=id_movie)
         )
     ]
 
@@ -187,11 +187,11 @@ def load(df: pd.DataFrame, settings: Settings):
     logger.info('- STARTING LOAD STEP -')
 
     database = Database(settings)
-
     database.create_movie_table()
-    database.count_movies()
+
+    logger.info('The "movies" table currently contains %s line(s)', database.count_movies())
     database.load_movies(df)
-    database.count_movies()
+    logger.info('The "movies" table currently contains %s line(s)', database.count_movies())
 
     logger.info('- LOAD STEP EXECUTED WITH SUCCCESS -')
 
@@ -207,9 +207,7 @@ def run():
     logger.info('-- ETL PROCESS EXECUTED WITH SUCCESS --')
 
     # Checking the result of the pipeline
-    logger.info('Checking the content of the `movie` table')
     database = Database(settings)
-    database.count_movies()
     logger.info('Hopefully you liked my work.')
 
 

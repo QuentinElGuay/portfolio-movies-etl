@@ -3,7 +3,7 @@ from typing import Any
 from urllib.parse import urljoin
 import requests
 
-from etl.src.movie_etl.config import Settings
+from movie_etl.config import Settings
 
 
 logger = logging.getLogger(__name__)

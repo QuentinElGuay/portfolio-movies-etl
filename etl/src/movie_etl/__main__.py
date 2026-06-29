@@ -1,4 +1,4 @@
-import etl.src.movie_etl.pipeline as pipeline
+import movie_etl.pipeline as pipeline
 
 
 def main():

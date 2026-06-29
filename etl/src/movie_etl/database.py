@@ -5,7 +5,7 @@ import logging
 from pandas import DataFrame
 from sqlalchemy import create_engine, text
 
-from etl.src.movie_etl.config import Settings
+from movie_etl.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +53,11 @@ class Database:
             logger.error('SQLAlchemy: Error configuring the engine: %s', error)
             raise
 
-    def create_movie_table(self):
+    def create_movie_table(self)->None:
         """
-        Create the `movie` table if required
+        Create the `movie` table or truncate it.
         """
-        schema = files('movie_etl.sql.ddl').joinpath('movie.sql').read_text()
+        schema = files('sql.ddl').joinpath('movie.sql').read_text()
 
         with self.engine.begin() as connection:
             connection.execute(text(schema))
@@ -75,10 +75,10 @@ class Database:
             logger.error('Error loading data: %s', error)
             raise
 
-    def count_movies(self) -> None:
+    def count_movies(self) -> int:
         with self.engine.connect() as connection:
             count_query = text('SELECT COUNT(*) FROM movie;')
             result = connection.execute(count_query)
             total_lines = result.scalar()
 
-        logger.debug('The "movies" table currently contains %s line(s)', total_lines)
+        return total_lines
