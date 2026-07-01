@@ -2,49 +2,42 @@ import os
 import logging
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+import duckdb
+from flask import Flask, jsonify, g, request
+
+DATABASE_PATH = 'data/movies.db'
 
 logging.basicConfig(level='INFO')
 
 load_dotenv()
 
-genres = {
-    1: {'id': 1, 'name': 'Action'},
-    2: {'id': 2, 'name': 'Comedy'},
-    3: {'id': 3, 'name': 'Romantic'},
-}
-
-movies = {
-    1: {'id': 1, 'name': 'Mission Impossible', 'release_date': '1996-05-22'},
-    2: {'id': 2, 'name': 'Scary Movie', 'release_date': '2000-07-07'},
-    3: {'id': 3, 'name': 'Notting Hill', 'release_date': '1999-05-21'},
-    4: {'id': 4, 'name': 'Die Hard', 'release_date': '1988-12-22'},
-}
-
-genre_movies = {
-    1: {'id': 1, 'id_genre': 1, 'id_movie': 1},
-    2: {'id': 2, 'id_genre': 2, 'id_movie': 2},
-    3: {'id': 3, 'id_genre': 3, 'id_movie': 3},
-    4: {'id': 4, 'id_genre': 1, 'id_movie': 4},
-}
-
-movies_ratings = {
-    1: {'id': 1, 'id_movie': 1, 'rating': 3},
-    2: {'id': 2, 'id_movie': 2, 'rating': 5},
-    3: {'id': 3, 'id_movie': 3, 'rating': 4},
-    4: {'id': 4, 'id_movie': 1, 'rating': 5},
-    5: {'id': 5, 'id_movie': 2, 'rating': 4},
-    6: {'id': 6, 'id_movie': 3, 'rating': 4},
-}
-
-
 app = Flask(__name__)
+
+
+def get_db():
+    """Opens a unique database connection for the current web request thread."""
+
+    if 'db' not in g:
+        # Open connection in read-only mode if your API only queries data.
+        # This prevents accidental locks. Remove 'read_only=True' if you must write data.
+        g.db = duckdb.connect(DATABASE_PATH, read_only=True)
+    return g.db
+
+
+@app.teardown_appcontext
+def close_db(exception):
+    """Automatically closes the database connection when the request finishes."""
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+
 
 class IgnoreHealthFilter(logging.Filter):
     def filter(self, record):
         return '/health' not in record.getMessage()
 
-werkzeug_logger = logging.getLogger("werkzeug")
+
+werkzeug_logger = logging.getLogger('werkzeug')
 werkzeug_logger.addFilter(IgnoreHealthFilter())
 
 
@@ -66,36 +59,48 @@ def authenticate():
 
 @app.route('/art/v3/genres', methods=['GET'])
 def list_genres():
+    db = get_db()
 
-    all_genres = list(genres.values())
+    query = 'SELECT * FROM genres'
+    result = db.execute(query).fetchall()
 
-    return jsonify(all_genres), 200
+    genres_list = [{'id': row[0], 'name': row[1]} for row in result]
+    return jsonify(genres_list), 200
 
 
 # Simulate a GET request endpoint
 @app.route('/art/v3/genres/<int:idGenre>/movies', methods=['GET'])
 def get_genre_movies(idGenre: int):
-    movies = [movie for movie in genre_movies.values() if movie['id_genre'] == idGenre]
+    db = get_db()
 
-    return jsonify(movies), 200
+    query = 'SELECT * FROM genres_movies WHERE genre_id = ?'
+    movies_list = db.execute(query, [idGenre]).fetchall()
+
+    if movies_list:
+        return jsonify(movies_list), 200
+    return jsonify({'error': 'Genre not found'}), 404
 
 
 @app.route('/art/v3/movies/<int:idMovie>', methods=['GET'])
 def get_movie(idMovie: int):
-    movie_data = [movie for movie in movies.values() if movie['id'] == idMovie]
+    db = get_db()
 
-    if movie_data:
-        return jsonify(movie_data[0]), 200
+    query = 'SELECT * FROM movies WHERE movie_id = ?'
+    movie = db.execute(query, [idMovie]).fetch()
+
+    if movie:
+        return jsonify(movie), 200
     return jsonify({'error': 'Movie not found'}), 404
 
 
 @app.route('/art/v3/movies/<int:idMovie>/ratings', methods=['GET'])
 def get_movie_ratings(idMovie: int):
-    ratings = [
-        movie for movie in movies_ratings.values() if movie['id_movie'] == idMovie
-    ]
+    db = get_db()
 
-    return jsonify(ratings), 200
+    query = 'SELECT * FROM ratings WHERE movie_id = ?'
+    ratings_list = db.execute(query, [idMovie]).fetchall()
+
+    return jsonify(ratings_list), 200
 
 
 @app.route('/health')
