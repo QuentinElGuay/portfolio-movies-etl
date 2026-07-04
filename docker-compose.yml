@@ -20,10 +20,26 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  prepare-data:
+    build: ./api
+
+    command: python prepare_data.py
+
+    volumes:
+      - ./data:/data
+
+    environment:
+      MOVIES_DB_PATH: /data/movies.duckdb
+
   api:
     build:
       context: ./api
     container_name: movie-api
+    depends_on:
+      prepare-data:
+        condition: service_completed_successfully
+    volumes:
+      - ./data:/data
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
@@ -32,6 +48,7 @@ services:
       retries: 10
 
     environment:
+      MOVIES_DB_PATH: /data/movies.duckdb
       USERNAME: ${API_USERNAME}
       PASSWORD: ${API_PASSWORD}
 

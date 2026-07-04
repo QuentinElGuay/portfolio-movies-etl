@@ -34,7 +34,7 @@ def get_genres(api_client: ApiClient) -> list[dict]:
     """
     Returns a list of genres returned by the API endpoints.
     """
-    genres = api_client.get_endpoint(GENRES_ENDPOINT)
+    genres = [genre for genre in api_client.get_endpoint(GENRES_ENDPOINT)]
     logger.info('Downloaded %d genres from endpoint.', len(genres))
     return genres
 
@@ -127,7 +127,7 @@ def extract(
         id_genres = [genre['id'] for genre in genres]
         genre_movies = get_genre_movies(api_client, id_genres)
 
-        id_movies = [gm['id_movie'] for gm in genre_movies]
+        id_movies = [gm['movie_id'] for gm in genre_movies]
         movies = get_movies(api_client, id_movies)
         movie_ratings = get_movie_ratings(api_client, id_movies)
 
@@ -155,7 +155,7 @@ def transform(
     df_movies_ratings = pd.DataFrame(movies_ratings)
 
     # Aggregate ratings by movie
-    df_aggregations = df_movies_ratings.groupby(['id_movie'], as_index=False).agg(
+    df_aggregations = df_movies_ratings.groupby(['movie_id'], as_index=False).agg(
         qty_ratings=('rating', 'count'),
         avg_rating=('rating', 'mean'),
         min_rating=('rating', 'min'),
@@ -166,10 +166,10 @@ def transform(
     df_exportation = (
         df_genres.merge(df_genres_movies, left_on='id', right_on='id_genre')
         .drop(columns=['id_x', 'id_y', 'id_genre'])
-        .merge(df_movies, left_on='id_movie', right_on='id')
-        .merge(df_aggregations, how='left', on='id_movie')
+        .merge(df_movies, left_on='movie_id', right_on='id')
+        .merge(df_aggregations, how='left', on='movie_id')
         .drop(columns=['id'])
-        .rename(columns={'id_movie': 'id'})
+        .rename(columns={'movie_id': 'id'})
     )
 
     # Fill missing data for movies without rating
@@ -189,9 +189,13 @@ def load(df: pd.DataFrame, settings: Settings):
     database = Database(settings)
     database.create_movie_table()
 
-    logger.info('The "movies" table currently contains %s line(s)', database.count_movies())
+    logger.info(
+        'The "movies" table currently contains %s line(s)', database.count_movies()
+    )
     database.load_movies(df)
-    logger.info('The "movies" table currently contains %s line(s)', database.count_movies())
+    logger.info(
+        'The "movies" table currently contains %s line(s)', database.count_movies()
+    )
 
     logger.info('- LOAD STEP EXECUTED WITH SUCCCESS -')
 

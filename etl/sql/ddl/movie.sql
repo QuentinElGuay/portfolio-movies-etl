@@ -7,6 +7,6 @@ CREATE TABLE IF NOT EXISTS movie (
     avg_rating NUMERIC(3, 2),
     min_rating INT,
     max_rating INT,
-    
+
     UNIQUE (name, release_date)
 );

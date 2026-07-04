@@ -1,103 +1,104 @@
+import logging
+import os
 from pathlib import Path
+import sys
 
 import duckdb
+from dotenv import load_dotenv
 import kagglehub
+
+load_dotenv()
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(
+    logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+)
+
+logger = logging.getLogger(__name__)
+logger.setLevel(os.getenv('LOG_LEVEL', 'INFO').upper())
+logger.addHandler(handler)
+
+
+KAGGLE_HANDLE = 'rounakbanik/the-movies-dataset'
+REQUIRED_TABLES = {'movies', 'ratings', 'genres', 'genres_movies'}
 
 
 def download_to_stage(
+    conn: duckdb.DuckDBPyConnection,
     table_name: str,
     kaggle_handle: str,
     kaggle_path: str,
-    columns: str = '*',
+    columns: list[str] = ['*'],
     ignore_errors=True,
-):
+) -> None:
 
     file_path = kagglehub.dataset_download(kaggle_handle, path=kaggle_path)
 
-    rel = conn.read_csv(file_path, ignore_errors)
-
-    conn.sql(f"""
+    conn.sql(
+        f"""
     CREATE TEMPORARY TABLE stage_{table_name} AS
-    SELECT {columns}
-    FROM rel
-    """)
+    SELECT {','.join(columns)}
+    FROM read_csv_auto('{file_path}', ignore_errors={str(ignore_errors).lower()})
+    """
+    )
 
 
-data_folder = Path('data')
-data_folder.mkdir(parents=True, exist_ok=True)
-conn = duckdb.connect(data_folder / 'movies.db')
+def database_is_ready(db_path: Path) -> bool:
 
-movies_file_path = kagglehub.dataset_download(
-    'rounakbanik/the-movies-dataset', path='movies_metadata.csv'
-)
+    if not db_path.exists():
+        return False
 
-ratings_file_path = kagglehub.dataset_download(
-    'rounakbanik/the-movies-dataset', path='ratings_small.csv'
-)
+    try:
+        with duckdb.connect(db_path, read_only=True) as conn:
+            tables = {row[0] for row in conn.sql('SHOW TABLES').fetchall()}
 
-rel_metadata = conn.read_csv(movies_file_path, ignore_errors=True)
-conn.sql("""
-CREATE TEMPORARY TABLE stage_metadata AS
-SELECT id, original_title, genres, overview
-FROM rel_metadata
-""")
+            if not REQUIRED_TABLES.issubset(tables):
+                return False
 
-conn.sql("""
-CREATE TEMPORARY TABLE stage_movies AS                
+            # Basic sanity check
+            if conn.sql('SELECT COUNT(*) FROM movies').fetchone()[0] == 0:
+                return False
 
-WITH clean_json AS (
-    SELECT
-        id,
-        original_title,
-        overview,
-        (REPLACE(genres, '''', '"')::JSON)::STRUCT(id INT, name VARCHAR)[] AS genres
-    FROM stage_metadata
-)
+            return True
 
-SELECT
-    id AS movie_id,
-    original_title AS movie_title,
-    overview AS movie_overview,
-    UNNEST(genres).id AS genre_id,
-    UNNEST(genres).name AS genre_name
-FROM clean_json      
-""")
+    except duckdb.Error:
+        return False
 
-conn.sql("""
-CREATE TABLE genres AS                
-SELECT DISTINCT
-    genre_id AS id,
-    genre_name AS name
-FROM stage_movies      
-""")
 
-conn.sql("""
-CREATE TABLE genres_movies AS                
-SELECT DISTINCT
-    genre_id,
-    movie_id
-FROM stage_movies      
-""")
+def prepare_database(db_path: Path) -> None:
+    data_folder = db_path.parent
+    data_folder.mkdir(parents=True, exist_ok=True)
 
-conn.sql("""
-CREATE TABLE movies AS                
-SELECT DISTINCT
-    id,
-    original_title,
-    overview
-    FROM stage_metadata  
-""")
+    with duckdb.connect(db_path) as conn:
+        download_to_stage(
+            conn,
+            'metadata',
+            KAGGLE_HANDLE,
+            'movies_metadata.csv',
+            columns=['id', 'original_title', 'genres', 'overview'],
+        )
 
-rel_ratings = conn.read_csv(ratings_file_path, ignore_errors=True)
-conn.sql('CREATE TEMPORARY TABLE stage_ratings AS SELECT * FROM rel_ratings')
+        download_to_stage(conn, 'ratings', KAGGLE_HANDLE, 'ratings_small.csv')
 
-conn.sql("""
-CREATE TABLE ratings AS                
-SELECT DISTINCT
-    movieId AS movie_id,
-    rating,
-    timestamp
-FROM stage_ratings      
-""")
+        conn.sql(Path('sql/stage_movies.sql').read_text())
+        conn.sql(Path('sql/genres.sql').read_text())
+        conn.sql(Path('sql/genres_movies.sql').read_text())
+        conn.sql(Path('sql/movies.sql').read_text())
+        conn.sql(Path('sql/ratings.sql').read_text())
 
-conn.close()
+        logger.info('Database prepared successfully.')
+
+
+def main():
+
+    MOVIES_DB_PATH = Path(os.environ['MOVIES_DB_PATH'])
+
+    if database_is_ready(MOVIES_DB_PATH):
+        logger.info('Database already prepared.')
+        return
+
+    prepare_database(MOVIES_DB_PATH)
+
+
+if __name__ == '__main__':
+    main()
