@@ -10,12 +10,14 @@ from movie_etl.config import Settings
 logger = logging.getLogger(__name__)
 
 
+MAX_PAGE_SIZE = 2000
+
 AUTH_ENDPOINT = '/auth'
 GENRES_ENDPOINT = '/art/v3/genres'
-GENRE_MOVIES_ENDPOINT = '/art/v3/genres/{idGenero}/movies'
-MOVIES_ENDPOINT = '/art/v3/movies/{idMovie}'
-MOVIE_RATINGS_ENDPOINT = '/art/v3/movies/{idMovie}/ratings'
-MAX_PAGE_SIZE = 2000
+GENRES_MOVIES_ENDPOINT = '/art/v3/genres-movies'
+MOVIES_ENDPOINT = '/art/v3/movies'
+MOVIE_RATINGS_ENDPOINT = '/art/v3/ratings'
+
 
 class ApiClient:
     def __init__(self, session: requests.Session, settings: Settings):
@@ -66,9 +68,9 @@ class ApiClient:
 
             yield from payload['data']
 
-            next_url = payload["pagination"].get("next")
+            next_url = response.headers.get('Link', '').split(';')[0].strip('<>')
             if next_url:
-                url = urljoin(self.api_base_url, next_url)
+                url = urljoin(self.settings.api_base_url, next_url)
                 params = None
             else:
                 url = None

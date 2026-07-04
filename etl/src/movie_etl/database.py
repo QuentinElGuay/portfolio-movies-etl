@@ -66,6 +66,7 @@ class Database:
 
         logger.info('Table "movie" initialized with success')
 
+
     def load_movies(self, df: DataFrame):
         try:
             df.to_sql(name='movie', con=self.engine, if_exists='append', index=False)

@@ -9,7 +9,7 @@ from requests.adapters import HTTPAdapter
 
 from movie_etl.api import (
     AUTH_ENDPOINT,
-    GENRE_MOVIES_ENDPOINT,
+    GENRES_MOVIES_ENDPOINT,
     GENRES_ENDPOINT,
     MOVIE_RATINGS_ENDPOINT,
     MOVIES_ENDPOINT,
@@ -39,46 +39,37 @@ def get_genres(api_client: ApiClient) -> list[dict]:
     return genres
 
 
-def get_genre_movies(api_client: ApiClient, id_genres: list[dict]) -> list[dict]:
+def get_genres_movies(api_client: ApiClient) -> list[dict]:
     """
-    Returns a list of relations genre/movies returned by the API endpoints.
+    Returns a list of relations genre/movie returned by the API endpoints.
     """
-    genre_movies = [
-        movie
-        for id_genre in id_genres
-        for movie in api_client.get_endpoint(
-            GENRE_MOVIES_ENDPOINT.format(idGenero=id_genre)
-        )
+    genres_movies = [
+        genre_movie for genre_movie in api_client.get_endpoint(GENRES_MOVIES_ENDPOINT)
     ]
 
-    logger.info('Downloaded %d genre_movies from endpoint.', len(genre_movies))
+    logger.info(
+        'Downloaded %d genre_movie relations from endpoint.', len(genres_movies)
+    )
 
-    return genre_movies
+    return genres_movies
 
 
-def get_movies(api_client: ApiClient, id_movies: list[dict]) -> list[dict]:
+def get_movies(api_client: ApiClient) -> list[dict]:
     """
     Returns a list of relations movies returned by the API endpoints.
     """
-    movies = [
-        api_client.get_endpoint(MOVIES_ENDPOINT.format(idMovie=id_movie))
-        for id_movie in id_movies
-    ]
+    movies = [movie for movie in api_client.get_endpoint(MOVIES_ENDPOINT)]
     logger.info('Downloaded %d movies from endpoint.', len(movies))
 
     return movies
 
 
-def get_movie_ratings(api_client: ApiClient, id_movies: list[str]) -> list[dict]:
+def get_movie_ratings(api_client: ApiClient) -> list[dict]:
     """
     Returns a list of relations movie/ratings returned by the API endpoints.
     """
     movie_ratings = [
-        rating
-        for id_movie in id_movies
-        for rating in api_client.get_endpoint(
-            MOVIE_RATINGS_ENDPOINT.format(idMovie=id_movie)
-        )
+        rating for rating in api_client.get_endpoint(MOVIE_RATINGS_ENDPOINT)
     ]
 
     logger.info(
@@ -123,17 +114,13 @@ def extract(
         session.headers.update(headers)
 
         genres = get_genres(api_client)
-
-        id_genres = [genre['id'] for genre in genres]
-        genre_movies = get_genre_movies(api_client, id_genres)
-
-        id_movies = [gm['movie_id'] for gm in genre_movies]
-        movies = get_movies(api_client, id_movies)
-        movie_ratings = get_movie_ratings(api_client, id_movies)
+        genres_movies = get_genres_movies(api_client)
+        movies = get_movies(api_client)
+        movie_ratings = get_movie_ratings(api_client)
 
     logger.info('- EXTRACT STEP EXECUTED WITH SUCCESS -')
 
-    return genres, movies, genre_movies, movie_ratings
+    return genres, movies, genres_movies, movie_ratings
 
 
 def transform(
@@ -163,17 +150,33 @@ def transform(
     )
 
     # Join DataFrames into one
-    df_exportation = (
-        df_genres.merge(df_genres_movies, left_on='id', right_on='id_genre')
-        .drop(columns=['id_x', 'id_y', 'id_genre'])
+    df_merge = (
+        df_genres_movies.merge(df_genres, left_on='genre_id', right_on='id')
+        .drop(columns=['genre_id'])
+        .groupby('movie_id')['genre'].agg(list).reset_index()
         .merge(df_movies, left_on='movie_id', right_on='id')
-        .merge(df_aggregations, how='left', on='movie_id')
         .drop(columns=['id'])
-        .rename(columns={'movie_id': 'id'})
+        .merge(df_aggregations, how='left', on='movie_id')
+        .rename(columns={'movie_id': 'id', 'genre': 'genres',})
+    )
+
+    df_exportation = df_merge.reindex(
+        columns=[
+            'id',
+            'title',
+            'genres',
+            'overview',
+            'qty_ratings',
+            'avg_rating',
+            'min_rating',
+            'max_rating',
+        ]
     )
 
     # Fill missing data for movies without rating
     df_exportation['qty_ratings'] = df_exportation['qty_ratings'].fillna(0).astype(int)
+
+    logger.info('Length of df_exportation: %s', len(df_exportation))
 
     logger.info('- TRANSFORM STEP EXECUTED WITH SUCCESS -')
 

@@ -79,12 +79,12 @@ def paginate_query(
 
     data = [row_factory(row) for row in rows]
 
-    return (
-        build_paginated_response(
+    response = build_paginated_response(
             items=data,
             total=total,
             limit=limit,
             offset=offset,
-        ),
-        build_next_url(limit=limit, offset=offset, total=total),
     )
+    next_url = build_next_url(limit=limit, offset=offset, total=total)
+
+    return response, next_url

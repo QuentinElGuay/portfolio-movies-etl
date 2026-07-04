@@ -77,36 +77,38 @@ def list_genres():
         },
     )
 
-    response = jsonify(payload), 200
+    response = jsonify(payload)
     if next_url:
         response.headers.add('Link', f'<{next_url}>; rel="next"')
 
-    return response
+    return response, 200
 
 
-@app.route('/art/v3/genres/<int:idGenre>/movies', methods=['GET'])
-def get_genre_movies(idGenre: int):
+@app.route('/art/v3/genres-movies', methods=['GET'])
+def get_genre_movies():
+    genre_id = request.args.get('genreId', type=int)
+
     payload, next_url = paginate_query(
         conn=get_db(),
         data_query="""
         SELECT *
         FROM genres_movies
-        WHERE genre_id = ?
+        WHERE (? IS NULL OR genre_id = ?)
         ORDER BY movie_id
         """,
-        count_query='SELECT COUNT(*) FROM genres_movies',
-        params=[idGenre],
-        row_factory=lambda row: {  # TODO: check
+        count_query='SELECT COUNT(*) FROM genres_movies WHERE (? IS NULL OR genre_id = ?)',
+        params=[genre_id, genre_id],
+        row_factory=lambda row: {
             'movie_id': row[0],
             'genre_id': row[1],
         },
     )
 
-    response = jsonify(payload), 200
+    response = jsonify(payload)
     if next_url:
         response.headers.add('Link', f'<{next_url}>; rel="next"')
 
-    return response
+    return response, 200
 
 
 @app.route('/art/v3/movies', methods=['GET'])
@@ -122,16 +124,17 @@ def get_movies():
         row_factory=lambda row: {
             'id': row[0],
             'title': row[1],
-            'year': row[2],
-            'rating': row[3],
+            'overview': row[2],
+            'release_date': row[3],
+            'revenue': row[4]
         },
     )
 
-    response = jsonify(payload), 200
+    response = jsonify(payload)
     if next_url:
         response.headers.add('Link', f'<{next_url}>; rel="next"')
 
-    return response
+    return response, 200
 
 
 @app.route('/art/v3/movies/<int:idMovie>', methods=['GET'])
@@ -162,7 +165,7 @@ def get_movie_ratings(idMovie: int):
         WHERE movie_id = ?
         ORDER BY id
         """,
-        count_query='SELECT COUNT(*) FROM ratings',
+        count_query='SELECT COUNT(*) FROM ratings WHERE movie_id = ?',
         params=[idMovie],
         row_factory=lambda row: {
             'movie_id': row[0],
@@ -171,11 +174,11 @@ def get_movie_ratings(idMovie: int):
         },
     )
 
-    response = jsonify(payload), 200
+    response = jsonify(payload)
     if next_url:
         response.headers.add('Link', f'<{next_url}>; rel="next"')
 
-    return response
+    return response, 200
 
 
 @app.route('/art/v3/ratings', methods=['GET'])
@@ -195,11 +198,11 @@ def list_ratings():
         },
     )
 
-    response = jsonify(payload), 200
+    response = jsonify(payload)
     if next_url:
         response.headers.add('Link', f'<{next_url}>; rel="next"')
 
-    return response
+    return response, 200
 
 
 @app.route('/health')
