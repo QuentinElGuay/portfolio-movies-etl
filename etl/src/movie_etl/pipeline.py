@@ -132,7 +132,7 @@ def transform(
     """
     Execute the Transform step of the ETL process
     """
-    logger.info('- STARTING TRANSFORM STEP -')
+    logger.info('- STARTING TRANSFORMATION STEP -')
 
     # Load data into DataFrames
     df_genres = pd.DataFrame(genres)
@@ -160,6 +160,7 @@ def transform(
         .rename(columns={'movie_id': 'id', 'genre': 'genres',})
     )
 
+
     df_exportation = df_merge.reindex(
         columns=[
             'id',
@@ -176,8 +177,7 @@ def transform(
     # Fill missing data for movies without rating
     df_exportation['qty_ratings'] = df_exportation['qty_ratings'].fillna(0).astype(int)
 
-    logger.info('Length of df_exportation: %s', len(df_exportation))
-
+    logger.debug('Length of df_exportation: %s', len(df_exportation))
     logger.info('- TRANSFORM STEP EXECUTED WITH SUCCESS -')
 
     return df_exportation
@@ -193,11 +193,11 @@ def load(df: pd.DataFrame, settings: Settings):
     database.create_movie_table()
 
     logger.info(
-        'The "movies" table currently contains %s line(s)', database.count_movies()
+        'The "movie" table currently contains %s line(s)', database.count_movies()
     )
     database.load_movies(df)
     logger.info(
-        'The "movies" table currently contains %s line(s)', database.count_movies()
+        'The "movie" table currently contains %s line(s)', database.count_movies()
     )
 
     logger.info('- LOAD STEP EXECUTED WITH SUCCCESS -')
@@ -213,8 +213,6 @@ def run():
     load(transform(*extract(settings)), settings)
     logger.info('-- ETL PROCESS EXECUTED WITH SUCCESS --')
 
-    # Checking the result of the pipeline
-    database = Database(settings)
     logger.info('Hopefully you liked my work.')
 
 

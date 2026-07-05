@@ -99,8 +99,8 @@ def get_genre_movies():
         count_query='SELECT COUNT(*) FROM genres_movies WHERE (? IS NULL OR genre_id = ?)',
         params=[genre_id, genre_id],
         row_factory=lambda row: {
-            'movie_id': row[0],
-            'genre_id': row[1],
+            'genre_id': row[0],
+            'movie_id': row[1],
         },
     )
 
@@ -124,9 +124,10 @@ def get_movies():
         row_factory=lambda row: {
             'id': row[0],
             'title': row[1],
-            'overview': row[2],
+            'language': row[2],
             'release_date': row[3],
-            'revenue': row[4]
+            'overview': row[4],
+            'revenue': row[5],
         },
     )
 

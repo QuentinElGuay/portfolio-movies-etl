@@ -75,7 +75,15 @@ def prepare_database(db_path: Path) -> None:
             'metadata',
             KAGGLE_HANDLE,
             'movies_metadata.csv',
-            columns=['id', 'original_title', 'genres', 'overview','release_date', 'revenue',],
+            columns=[
+                'id',
+                'original_title',
+                'original_language',
+                'genres',
+                'overview',
+                'release_date',
+                'revenue',
+            ],
         )
 
         download_to_stage(conn, 'ratings', KAGGLE_HANDLE, 'ratings_small.csv')
