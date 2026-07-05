@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 import logging
 from typing import Any
 from urllib.parse import urljoin
@@ -9,11 +10,13 @@ from movie_etl.config import Settings
 logger = logging.getLogger(__name__)
 
 
+MAX_PAGE_SIZE = 2000
+
 AUTH_ENDPOINT = '/auth'
 GENRES_ENDPOINT = '/art/v3/genres'
-GENRE_MOVIES_ENDPOINT = '/art/v3/genres/{idGenero}/movies'
-MOVIES_ENDPOINT = '/art/v3/movies/{idMovie}'
-MOVIE_RATINGS_ENDPOINT = '/art/v3/movies/{idMovie}/ratings'
+GENRES_MOVIES_ENDPOINT = '/art/v3/genres-movies'
+MOVIES_ENDPOINT = '/art/v3/movies'
+MOVIE_RATINGS_ENDPOINT = '/art/v3/ratings'
 
 
 class ApiClient:
@@ -44,18 +47,30 @@ class ApiClient:
 
         return response.json()['access_token']
 
-    def get_endpoint(self, endpoint: str, timeout: int = 5) -> Any:
+    def get_endpoint(self, endpoint: str, timeout: int = 5) -> Iterator[dict[str, Any]]:
         """
         Returns the result of a GET call to an endpoint
         """
         url = urljoin(self.settings.api_base_url, endpoint)
-        response = self.session.get(url, timeout=timeout)
+        params = {'limit': MAX_PAGE_SIZE}
 
-        try:
-            response.raise_for_status()
+        while url:
+            response = self.session.get(url, params=params, timeout=timeout)
 
-        except Exception as error:
-            logger.error('Unable to retrieve endpoint %s: %s', url, error)
-            raise
+            try:
+                response.raise_for_status()
 
-        return response.json()
+            except Exception as error:
+                logger.error('Unable to retrieve endpoint %s: %s', url, error)
+                raise
+
+            payload = response.json()
+
+            yield from payload['data']
+
+            next_url = response.headers.get('Link', '').split(';')[0].strip('<>')
+            if next_url:
+                url = urljoin(self.settings.api_base_url, next_url)
+                params = None
+            else:
+                url = None

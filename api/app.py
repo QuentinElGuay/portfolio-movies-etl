@@ -1,50 +1,47 @@
-import os
 import logging
+import os
+from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request
+import duckdb
+from flask import Flask, jsonify, g, request
+
+from pagination import paginate_query
+
+
+MOVIES_DB_PATH = Path(os.environ['MOVIES_DB_PATH'])
 
 logging.basicConfig(level='INFO')
 
 load_dotenv()
 
-genres = {
-    1: {'id': 1, 'name': 'Action'},
-    2: {'id': 2, 'name': 'Comedy'},
-    3: {'id': 3, 'name': 'Romantic'},
-}
-
-movies = {
-    1: {'id': 1, 'name': 'Mission Impossible', 'release_date': '1996-05-22'},
-    2: {'id': 2, 'name': 'Scary Movie', 'release_date': '2000-07-07'},
-    3: {'id': 3, 'name': 'Notting Hill', 'release_date': '1999-05-21'},
-    4: {'id': 4, 'name': 'Die Hard', 'release_date': '1988-12-22'},
-}
-
-genre_movies = {
-    1: {'id': 1, 'id_genre': 1, 'id_movie': 1},
-    2: {'id': 2, 'id_genre': 2, 'id_movie': 2},
-    3: {'id': 3, 'id_genre': 3, 'id_movie': 3},
-    4: {'id': 4, 'id_genre': 1, 'id_movie': 4},
-}
-
-movies_ratings = {
-    1: {'id': 1, 'id_movie': 1, 'rating': 3},
-    2: {'id': 2, 'id_movie': 2, 'rating': 5},
-    3: {'id': 3, 'id_movie': 3, 'rating': 4},
-    4: {'id': 4, 'id_movie': 1, 'rating': 5},
-    5: {'id': 5, 'id_movie': 2, 'rating': 4},
-    6: {'id': 6, 'id_movie': 3, 'rating': 4},
-}
-
-
 app = Flask(__name__)
+
+
+def get_db():
+    """Opens a unique database connection for the current web request thread."""
+
+    if 'db' not in g:
+        # Open connection in read-only mode if your API only queries data.
+        # This prevents accidental locks. Remove 'read_only=True' if you must write data.
+        g.db = duckdb.connect(MOVIES_DB_PATH, read_only=True)
+    return g.db
+
+
+@app.teardown_appcontext
+def close_db(exception):
+    """Automatically closes the database connection when the request finishes."""
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+
 
 class IgnoreHealthFilter(logging.Filter):
     def filter(self, record):
         return '/health' not in record.getMessage()
 
-werkzeug_logger = logging.getLogger("werkzeug")
+
+werkzeug_logger = logging.getLogger('werkzeug')
 werkzeug_logger.addFilter(IgnoreHealthFilter())
 
 
@@ -54,48 +51,159 @@ def authenticate():
     username = data.get('username')
     password = data.get('password')
 
-    # Validação simples de credenciais simuladas
+    # Simulation of authentication
     if username == os.getenv('USERNAME') and password == os.getenv('PASSWORD'):
         logging.info('AUTHENTICATION SUCCESS')
         return jsonify({'access_token': '123456', 'token_type': 'Bearer'}), 200
 
-    # Retorna erro caso as credenciais estejam erradas
+    # Return an error response for failed authentication
     logging.error('AUTHENTICATION FAIL')
     return jsonify({'error': 'Unauthorized', 'message': 'Credenciais inválidas'}), 401
 
 
 @app.route('/art/v3/genres', methods=['GET'])
 def list_genres():
+    payload, next_url = paginate_query(
+        conn=get_db(),
+        data_query="""
+        SELECT *
+        FROM genres
+        ORDER BY id
+        """,
+        count_query='SELECT COUNT(*) FROM genres',
+        row_factory=lambda row: {
+            'id': row[0],
+            'name': row[1],
+        },
+    )
 
-    all_genres = list(genres.values())
+    response = jsonify(payload)
+    if next_url:
+        response.headers.add('Link', f'<{next_url}>; rel="next"')
 
-    return jsonify(all_genres), 200
+    return response, 200
 
 
-# Simulate a GET request endpoint
-@app.route('/art/v3/genres/<int:idGenre>/movies', methods=['GET'])
-def get_genre_movies(idGenre: int):
-    movies = [movie for movie in genre_movies.values() if movie['id_genre'] == idGenre]
+@app.route('/art/v3/genres-movies', methods=['GET'])
+def get_genre_movies():
+    genre_id = request.args.get('genreId', type=int)
 
-    return jsonify(movies), 200
+    payload, next_url = paginate_query(
+        conn=get_db(),
+        data_query="""
+        SELECT *
+        FROM genres_movies
+        WHERE (? IS NULL OR genre_id = ?)
+        ORDER BY movie_id
+        """,
+        count_query='SELECT COUNT(*) FROM genres_movies WHERE (? IS NULL OR genre_id = ?)',
+        params=[genre_id, genre_id],
+        row_factory=lambda row: {
+            'genre_id': row[0],
+            'movie_id': row[1],
+        },
+    )
+
+    response = jsonify(payload)
+    if next_url:
+        response.headers.add('Link', f'<{next_url}>; rel="next"')
+
+    return response, 200
+
+
+@app.route('/art/v3/movies', methods=['GET'])
+def get_movies():
+    payload, next_url = paginate_query(
+        conn=get_db(),
+        data_query="""
+        SELECT *
+        FROM movies
+        ORDER BY id
+        """,
+        count_query='SELECT COUNT(*) FROM movies',
+        row_factory=lambda row: {
+            'id': row[0],
+            'title': row[1],
+            'language': row[2],
+            'release_date': row[3],
+            'overview': row[4],
+            'revenue': row[5],
+        },
+    )
+
+    response = jsonify(payload)
+    if next_url:
+        response.headers.add('Link', f'<{next_url}>; rel="next"')
+
+    return response, 200
 
 
 @app.route('/art/v3/movies/<int:idMovie>', methods=['GET'])
 def get_movie(idMovie: int):
-    movie_data = [movie for movie in movies.values() if movie['id'] == idMovie]
+    db = get_db()
+    result = db.execute(
+        """
+        SELECT *
+        FROM movies
+        WHERE id = ?
+        """,
+        [idMovie],
+    ).fetchdf()
 
-    if movie_data:
-        return jsonify(movie_data[0]), 200
-    return jsonify({'error': 'Movie not found'}), 404
+    try:
+        return jsonify(result.to_dict(orient='records')[0]), 200
+    except IndexError:
+        return jsonify({'error': 'Movie not found'}), 404
 
 
 @app.route('/art/v3/movies/<int:idMovie>/ratings', methods=['GET'])
 def get_movie_ratings(idMovie: int):
-    ratings = [
-        movie for movie in movies_ratings.values() if movie['id_movie'] == idMovie
-    ]
+    payload, next_url = paginate_query(
+        conn=get_db(),
+        data_query="""
+        SELECT *
+        FROM ratings
+        WHERE movie_id = ?
+        ORDER BY id
+        """,
+        count_query='SELECT COUNT(*) FROM ratings WHERE movie_id = ?',
+        params=[idMovie],
+        row_factory=lambda row: {
+            'movie_id': row[0],
+            'rating': row[1],
+            'timestamp': row[3],
+        },
+    )
 
-    return jsonify(ratings), 200
+    response = jsonify(payload)
+    if next_url:
+        response.headers.add('Link', f'<{next_url}>; rel="next"')
+
+    return response, 200
+
+
+@app.route('/art/v3/ratings', methods=['GET'])
+def list_ratings():
+    payload, next_url = paginate_query(
+        conn=get_db(),
+        data_query="""
+        SELECT *
+        FROM ratings
+        ORDER BY timestamp ASC
+        """,
+        count_query='SELECT COUNT(*) FROM ratings',
+        row_factory=lambda row: {
+            'movie_id': row[0],
+            'rating': row[1],
+            'timestamp': row[2],
+        },
+    )
+
+    response = jsonify(payload)
+    if next_url:
+        response.headers.add('Link', f'<{next_url}>; rel="next"')
+
+    return response, 200
 
 
 @app.route('/health')

@@ -53,7 +53,7 @@ class Database:
             logger.error('SQLAlchemy: Error configuring the engine: %s', error)
             raise
 
-    def create_movie_table(self)->None:
+    def create_movie_table(self) -> None:
         """
         Create the `movie` table or truncate it.
         """
@@ -65,6 +65,7 @@ class Database:
             connection.execute(text('TRUNCATE TABLE movie;'))
 
         logger.info('Table "movie" initialized with success')
+
 
     def load_movies(self, df: DataFrame):
         try:
