@@ -3,7 +3,7 @@ from importlib.resources import files
 import logging
 
 from pandas import DataFrame
-from sqlalchemy import create_engine, text
+from sqlalchemy import MetaData, Table, create_engine, insert, text
 
 from movie_etl.config import Settings
 
@@ -62,21 +62,40 @@ class Database:
         with self.engine.begin() as connection:
             connection.execute(text(schema))
 
-            connection.execute(text('TRUNCATE TABLE movie;'))
-
         logger.info('Table "movie" initialized with success')
 
-
     def load_movies(self, df: DataFrame):
-        try:
-            df.to_sql(name='movie', con=self.engine, if_exists='append', index=False)
-            logger.info('DataFrame successfully loaded into the movie table')
+        """
+        Load the DataFrame into the `movie` table using an UPSERT operation to ensure idempotency.
+        """
+        metadata = MetaData()
+        movie = Table('movie', metadata, autoload_with=self.engine)
 
-        except Exception as error:
-            logger.error('Error loading data: %s', error)
-            raise
+        rows = df.to_dict(orient='records')
+
+        stmt = insert(movie).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['id'],
+            set_={
+                column.name: getattr(stmt.excluded, column.name)
+                for column in movie.columns
+                if column.name != 'id'
+            },
+        )
+
+        with self.engine.begin() as conn:
+            try:
+                result = conn.execute(stmt)
+                logger.info('Upserted %d row(s) into the "movie" table.', result.rowcount)
+
+            except Exception as error:
+                logger.error('Error loading data: %s', error)
+                raise
 
     def count_movies(self) -> int:
+        """
+        Count the number of line in the `movie` table.
+        """
         with self.engine.connect() as connection:
             count_query = text('SELECT COUNT(*) FROM movie;')
             result = connection.execute(count_query)

@@ -153,13 +153,19 @@ def transform(
     df_merge = (
         df_genres_movies.merge(df_genres, left_on='genre_id', right_on='id')
         .drop(columns=['genre_id'])
-        .groupby('movie_id')['genre'].agg(list).reset_index()
+        .groupby('movie_id')['genre']
+        .agg(list)
+        .reset_index()
         .merge(df_movies, left_on='movie_id', right_on='id')
         .drop(columns=['id'])
         .merge(df_aggregations, how='left', on='movie_id')
-        .rename(columns={'movie_id': 'id', 'genre': 'genres',})
+        .rename(
+            columns={
+                'movie_id': 'id',
+                'genre': 'genres',
+            }
+        )
     )
-
 
     df_exportation = df_merge.reindex(
         columns=[
