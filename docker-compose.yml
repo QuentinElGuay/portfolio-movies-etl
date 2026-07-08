@@ -66,6 +66,9 @@ services:
       api:
         condition: service_healthy
 
+    volumes:
+      - ./storage:/storage
+
     environment:
       API_BASE_URL: http://api:5000
       API_USERNAME: ${API_USERNAME}
