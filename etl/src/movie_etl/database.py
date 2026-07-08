@@ -86,7 +86,9 @@ class Database:
         with self.engine.begin() as conn:
             try:
                 result = conn.execute(stmt)
-                logger.info('Upserted %d row(s) into the "movie" table.', result.rowcount)
+                logger.info(
+                    'Upserted %d row(s) into the "movie" table.', result.rowcount
+                )
 
             except Exception as error:
                 logger.error('Error loading data: %s', error)

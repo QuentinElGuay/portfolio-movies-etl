@@ -1,3 +1,4 @@
+from datetime import date
 import logging
 import os
 import sys
@@ -17,6 +18,7 @@ from movie_etl.api import (
 )
 from movie_etl.config import Settings
 from movie_etl.database import Database
+from movie_etl.storage import LocalStorage, NdjsonWriter
 
 
 handler = logging.StreamHandler(sys.stdout)
@@ -24,60 +26,75 @@ handler.setFormatter(
     logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 )
 
-logger = logging.getLogger('ETL')
+logger = logging.getLogger('movie_etl')
 logger.setLevel(os.getenv('LOG_LEVEL', 'INFO').upper())
 logger.addHandler(handler)
 logger.propagate = False
 
 
-def get_genres(api_client: ApiClient) -> list[dict]:
+def get_genres(api_client: ApiClient) -> str:
     """
     Returns a list of genres returned by the API endpoints.
     """
-    genres = [genre for genre in api_client.get_endpoint(GENRES_ENDPOINT)]
-    logger.info('Downloaded %d genres from endpoint.', len(genres))
-    return genres
+    prefix = f'genres/date={date.today().isoformat()}/'
+
+    with NdjsonWriter(LocalStorage(), prefix=prefix) as writer:
+        nb_records = 0
+        for genre in api_client.get_endpoint(GENRES_ENDPOINT):
+            r = writer.write(genre)
+            nb_records += 1
+        logger.info('Downloaded %d genres from endpoint.', nb_records)
+
+    return prefix
 
 
-def get_genres_movies(api_client: ApiClient) -> list[dict]:
+def get_genres_movies(api_client: ApiClient) -> str:
     """
     Returns a list of relations genre/movie returned by the API endpoints.
     """
-    genres_movies = [
-        genre_movie for genre_movie in api_client.get_endpoint(GENRES_MOVIES_ENDPOINT)
-    ]
+    prefix = f'genres_movies/date={date.today().isoformat()}/'
 
-    logger.info(
-        'Downloaded %d genre_movie relations from endpoint.', len(genres_movies)
-    )
+    with NdjsonWriter(LocalStorage(), prefix=prefix) as writer:
+        nb_records = 0
+        for genres_movies in api_client.get_endpoint(GENRES_MOVIES_ENDPOINT):
+            writer.write(genres_movies)
+            nb_records += 1
+        logger.info('Downloaded %d genre_movie relations from endpoint.', nb_records)
 
-    return genres_movies
+    return prefix
 
 
-def get_movies(api_client: ApiClient) -> list[dict]:
+def get_movies(api_client: ApiClient) -> str:
     """
     Returns a list of relations movies returned by the API endpoints.
     """
-    movies = [movie for movie in api_client.get_endpoint(MOVIES_ENDPOINT)]
-    logger.info('Downloaded %d movies from endpoint.', len(movies))
+    prefix = f'movies/date={date.today().isoformat()}/'
 
-    return movies
+    with NdjsonWriter(LocalStorage(), prefix=prefix) as writer:
+        nb_records = 0
+        for movies in api_client.get_endpoint(MOVIES_ENDPOINT):
+            writer.write(movies)
+            nb_records += 1
+        logger.info('Downloaded %d movies from endpoint.', nb_records)
+
+    return prefix
 
 
-def get_movie_ratings(api_client: ApiClient) -> list[dict]:
+def get_movie_ratings(api_client: ApiClient) -> str:
     """
     Returns a list of relations movie/ratings returned by the API endpoints.
     """
-    movie_ratings = [
-        rating for rating in api_client.get_endpoint(MOVIE_RATINGS_ENDPOINT)
-    ]
+    prefix = f'ratings/date={date.today().isoformat()}/'
 
-    logger.info(
-        'Downloaded %d ratings from endpoint.',
-        len(movie_ratings),
-    )
+    with NdjsonWriter(LocalStorage(), prefix=prefix) as writer:
+        nb_records = 0
+        for movie_ratings in api_client.get_endpoint(MOVIE_RATINGS_ENDPOINT):
+            writer.write(movie_ratings)
+            nb_records += 1
 
-    return movie_ratings
+    logger.info('Downloaded %d ratings from endpoint.', nb_records)
+
+    return prefix
 
 
 def extract(
@@ -216,11 +233,15 @@ def run():
 
     # Running the ETL process
     logger.info('-- STARTING ETL PROCESS --')
-    load(transform(*extract(settings)), settings)
-    logger.info('-- ETL PROCESS EXECUTED WITH SUCCESS --')
+    extract(settings)
+
+
+    # load(transform(*extract(settings)), settings)
+    # logger.info('-- ETL PROCESS EXECUTED WITH SUCCESS --')
 
     logger.info('Hopefully you liked my work.')
 
 
 if __name__ == '__main__':
     run()
+
