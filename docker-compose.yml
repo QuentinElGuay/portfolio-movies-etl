@@ -66,10 +66,14 @@ services:
       api:
         condition: service_healthy
 
+    volumes:
+      - ./storage:/storage
+
     environment:
       API_BASE_URL: http://api:5000
       API_USERNAME: ${API_USERNAME}
       API_PASSWORD: ${API_PASSWORD}
+      LOCAL_STORAGE: ${LOCAL_STORAGE}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_HOST: postgres
