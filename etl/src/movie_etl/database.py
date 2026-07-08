@@ -64,6 +64,7 @@ class Database:
 
         logger.info('Table "movie" initialized with success')
 
+
     def load_movies(self, df: DataFrame):
         """
         Load the DataFrame into the `movie` table using an UPSERT operation to ensure idempotency.
