@@ -149,19 +149,12 @@ def transform(datasets: dict[str, str]) -> pd.DataFrame:
     """
     logger.info('- STARTING TRANSFORMATION STEP -')
 
-    storage = StorageFactory.create('local')
+    storage = StorageFactory.create('local')  # TODO: use storage oobject correctly
     df_genres = NdjsonReader(f'storage/{datasets["genres"]}').read_all()
     df_genres.rename(columns={'name': 'genre'}, inplace=True)
     df_movies = NdjsonReader(f'storage/{datasets["movies"]}').read_all()
     df_genres_movies = NdjsonReader(f'storage/{datasets["genres_movies"]}').read_all()
     df_movies_ratings = NdjsonReader(f'storage/{datasets["movies_ratings"]}').read_all()
-
-    # Load data into DataFrames
-    # df_genres = pd.read_json(storage.download())
-    # df_genres.rename(columns={'name': 'genre'}, inplace=True)
-    # df_movies = pd.read_json(storage.download(datasets['movies']))
-    # df_genres_movies = pd.read_json(storage.download(datasets['genres_movies']))
-    # df_movies_ratings = pd.read_json(storage.download(datasets['movies_ratings']))
 
     # Aggregate ratings by movie
     df_aggregations = df_movies_ratings.groupby(['movie_id'], as_index=False).agg(
