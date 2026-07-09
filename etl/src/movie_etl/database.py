@@ -3,7 +3,8 @@ from importlib.resources import files
 import logging
 
 from pandas import DataFrame
-from sqlalchemy import MetaData, Table, create_engine, insert, text
+from sqlalchemy import MetaData, Table, create_engine, text
+from sqlalchemy.dialects.postgresql import insert
 
 from movie_etl.config import Settings
 
@@ -63,7 +64,6 @@ class Database:
             connection.execute(text(schema))
 
         logger.info('Table "movie" initialized with success')
-
 
     def load_movies(self, df: DataFrame):
         """

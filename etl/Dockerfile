@@ -17,7 +17,6 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-editable
 
 COPY src ./src
-COPY sql ./sql
 
 RUN uv sync --frozen --no-dev --no-editable
 

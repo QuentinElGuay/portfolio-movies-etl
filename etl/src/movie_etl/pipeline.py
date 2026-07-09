@@ -18,7 +18,7 @@ from movie_etl.api import (
 )
 from movie_etl.config import Settings
 from movie_etl.database import Database
-from movie_etl.storage import LocalStorage, NdjsonWriter
+from movie_etl.storage import LocalStorage, NdjsonReader, NdjsonWriter, StorageFactory
 
 
 handler = logging.StreamHandler(sys.stdout)
@@ -38,7 +38,7 @@ def get_genres(api_client: ApiClient) -> str:
     """
     prefix = f'genres/date={date.today().isoformat()}/'
 
-    with NdjsonWriter(LocalStorage(), prefix=prefix) as writer:
+    with NdjsonWriter(StorageFactory.create('local'), prefix=prefix) as writer:
         nb_records = 0
         for genre in api_client.get_endpoint(GENRES_ENDPOINT):
             r = writer.write(genre)
@@ -54,7 +54,7 @@ def get_genres_movies(api_client: ApiClient) -> str:
     """
     prefix = f'genres_movies/date={date.today().isoformat()}/'
 
-    with NdjsonWriter(LocalStorage(), prefix=prefix) as writer:
+    with NdjsonWriter(StorageFactory.create('local'), prefix=prefix) as writer:
         nb_records = 0
         for genres_movies in api_client.get_endpoint(GENRES_MOVIES_ENDPOINT):
             writer.write(genres_movies)
@@ -70,7 +70,7 @@ def get_movies(api_client: ApiClient) -> str:
     """
     prefix = f'movies/date={date.today().isoformat()}/'
 
-    with NdjsonWriter(LocalStorage(), prefix=prefix) as writer:
+    with NdjsonWriter(StorageFactory.create('local'), prefix=prefix) as writer:
         nb_records = 0
         for movies in api_client.get_endpoint(MOVIES_ENDPOINT):
             writer.write(movies)
@@ -86,7 +86,7 @@ def get_movie_ratings(api_client: ApiClient) -> str:
     """
     prefix = f'ratings/date={date.today().isoformat()}/'
 
-    with NdjsonWriter(LocalStorage(), prefix=prefix) as writer:
+    with NdjsonWriter(StorageFactory.create('local'), prefix=prefix) as writer:
         nb_records = 0
         for movie_ratings in api_client.get_endpoint(MOVIE_RATINGS_ENDPOINT):
             writer.write(movie_ratings)
@@ -99,11 +99,10 @@ def get_movie_ratings(api_client: ApiClient) -> str:
 
 def extract(
     settings: Settings,
-) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
+) -> dict[str, str]:
     """
     Execute the Extract step of the ETL process
     """
-
     logger.info('- STARTING EXTRACT STEP -')
 
     with requests.Session() as session:
@@ -130,33 +129,32 @@ def extract(
 
         session.headers.update(headers)
 
-        genres = get_genres(api_client)
-        genres_movies = get_genres_movies(api_client)
-        movies = get_movies(api_client)
-        movie_ratings = get_movie_ratings(api_client)
+        dataset_paths = {
+            'genres': get_genres(api_client),
+            'genres_movies': get_genres_movies(api_client),
+            'movies': get_movies(api_client),
+            'movies_ratings': get_movie_ratings(api_client),
+        }
+
+    logger.info(dataset_paths)
 
     logger.info('- EXTRACT STEP EXECUTED WITH SUCCESS -')
 
-    return genres, movies, genres_movies, movie_ratings
+    return dataset_paths
 
 
-def transform(
-    genres: list[dict],
-    movies: list[dict],
-    genres_movies: list[dict],
-    movies_ratings: list[dict],
-) -> pd.DataFrame:
+def transform(datasets: dict[str, str]) -> pd.DataFrame:
     """
     Execute the Transform step of the ETL process
     """
     logger.info('- STARTING TRANSFORMATION STEP -')
 
-    # Load data into DataFrames
-    df_genres = pd.DataFrame(genres)
+    storage = StorageFactory.create('local')  # TODO: use storage oobject correctly
+    df_genres = NdjsonReader(f'storage/{datasets["genres"]}').read_all()
     df_genres.rename(columns={'name': 'genre'}, inplace=True)
-    df_movies = pd.DataFrame(movies)
-    df_genres_movies = pd.DataFrame(genres_movies)
-    df_movies_ratings = pd.DataFrame(movies_ratings)
+    df_movies = NdjsonReader(f'storage/{datasets["movies"]}').read_all()
+    df_genres_movies = NdjsonReader(f'storage/{datasets["genres_movies"]}').read_all()
+    df_movies_ratings = NdjsonReader(f'storage/{datasets["movies_ratings"]}').read_all()
 
     # Aggregate ratings by movie
     df_aggregations = df_movies_ratings.groupby(['movie_id'], as_index=False).agg(
@@ -219,9 +217,7 @@ def load(df: pd.DataFrame, settings: Settings):
         'The "movie" table currently contains %s line(s)', database.count_movies()
     )
     database.load_movies(df)
-    logger.info(
-        'The "movie" table currently contains %s line(s)', database.count_movies()
-    )
+    logger.info('The "movie" table now contains %s line(s)', database.count_movies())
 
     logger.info('- LOAD STEP EXECUTED WITH SUCCCESS -')
 
@@ -233,11 +229,8 @@ def run():
 
     # Running the ETL process
     logger.info('-- STARTING ETL PROCESS --')
-    extract(settings)
-
-
-    # load(transform(*extract(settings)), settings)
-    # logger.info('-- ETL PROCESS EXECUTED WITH SUCCESS --')
+    load(transform(extract(settings)), settings)
+    logger.info('-- ETL PROCESS EXECUTED WITH SUCCESS --')
 
     logger.info('Hopefully you liked my work.')
 
