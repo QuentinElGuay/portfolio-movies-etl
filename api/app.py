@@ -84,33 +84,6 @@ def list_genres():
     return response, 200
 
 
-@app.route('/art/v3/genres-movies', methods=['GET'])
-def get_genre_movies():
-    genre_id = request.args.get('genreId', type=int)
-
-    payload, next_url = paginate_query(
-        conn=get_db(),
-        data_query="""
-        SELECT *
-        FROM genres_movies
-        WHERE (? IS NULL OR genre_id = ?)
-        ORDER BY movie_id
-        """,
-        count_query='SELECT COUNT(*) FROM genres_movies WHERE (? IS NULL OR genre_id = ?)',
-        params=[genre_id, genre_id],
-        row_factory=lambda row: {
-            'genre_id': row[0],
-            'movie_id': row[1],
-        },
-    )
-
-    response = jsonify(payload)
-    if next_url:
-        response.headers.add('Link', f'<{next_url}>; rel="next"')
-
-    return response, 200
-
-
 @app.route('/art/v3/movies', methods=['GET'])
 def get_movies():
     payload, next_url = paginate_query(
@@ -125,9 +98,10 @@ def get_movies():
             'id': row[0],
             'title': row[1],
             'language': row[2],
-            'release_date': row[3],
-            'overview': row[4],
-            'revenue': row[5],
+            'genres': row[3],
+            'release_date': row[4],
+            'overview': row[5],
+            'revenue': row[6],
         },
     )
 

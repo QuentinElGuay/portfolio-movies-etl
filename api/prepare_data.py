@@ -86,12 +86,11 @@ def prepare_database(db_path: Path) -> None:
             ],
         )
 
-        download_to_stage(conn, 'ratings', KAGGLE_HANDLE, 'ratings_small.csv')
-
         conn.sql(Path('sql/stage_movies.sql').read_text())
         conn.sql(Path('sql/genres.sql').read_text())
-        conn.sql(Path('sql/genres_movies.sql').read_text())
         conn.sql(Path('sql/movies.sql').read_text())
+        download_to_stage(conn, 'ratings', KAGGLE_HANDLE, 'ratings_small.csv')
+
         conn.sql(Path('sql/ratings.sql').read_text())
 
         logger.info('Database prepared successfully.')
