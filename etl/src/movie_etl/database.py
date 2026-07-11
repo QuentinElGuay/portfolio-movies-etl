@@ -5,6 +5,7 @@ import logging
 from pandas import DataFrame
 from sqlalchemy import MetaData, Table, create_engine, text
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
 
 from movie_etl.config import Settings
 
@@ -58,7 +59,7 @@ class Database:
         """
         Create the `movie` table or truncate it.
         """
-        schema = files('sql.ddl').joinpath('movie.sql').read_text()
+        schema = files('movie_etl.sql.ddl').joinpath('movie.sql').read_text()
 
         with self.engine.begin() as connection:
             connection.execute(text(schema))
@@ -91,9 +92,14 @@ class Database:
                     'Upserted %d row(s) into the "movie" table.', result.rowcount
                 )
 
-            except Exception as error:
-                logger.error('Error loading data: %s', error)
-                raise
+            except SQLAlchemyError as error:
+                # 1. Log only the core database error message (hides the raw rows)
+                logger.error('Error loading data: %s', getattr(error, 'orig', error))
+
+                # 2. Raise a clean exception without the massive DataFrame dump
+                raise RuntimeError(
+                    'Database upsert failed due to a constraint or type error.'
+                ) from None
 
     def count_movies(self) -> int:
         """

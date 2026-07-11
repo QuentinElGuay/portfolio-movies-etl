@@ -20,7 +20,7 @@ logger.addHandler(handler)
 
 
 KAGGLE_HANDLE = 'rounakbanik/the-movies-dataset'
-REQUIRED_TABLES = {'movies', 'ratings', 'genres', 'genres_movies'}
+REQUIRED_TABLES = {'movies', 'ratings', 'genres'}
 
 
 def download_to_stage(
@@ -70,6 +70,7 @@ def prepare_database(db_path: Path) -> None:
     data_folder.mkdir(parents=True, exist_ok=True)
 
     with duckdb.connect(db_path) as conn:
+        # Import movies_metadata
         download_to_stage(
             conn,
             'metadata',
@@ -86,19 +87,18 @@ def prepare_database(db_path: Path) -> None:
             ],
         )
 
-        download_to_stage(conn, 'ratings', KAGGLE_HANDLE, 'ratings_small.csv')
+        # TODO: create a helper
+        conn.sql((Path(__file__).resolve().parent / 'sql/movies.sql').read_text())
+        conn.sql((Path(__file__).resolve().parent / 'sql/genres.sql').read_text())
 
-        conn.sql(Path('sql/stage_movies.sql').read_text())
-        conn.sql(Path('sql/genres.sql').read_text())
-        conn.sql(Path('sql/genres_movies.sql').read_text())
-        conn.sql(Path('sql/movies.sql').read_text())
-        conn.sql(Path('sql/ratings.sql').read_text())
+        # Import ratings.csv
+        download_to_stage(conn, 'ratings', KAGGLE_HANDLE, 'ratings_small.csv')
+        conn.sql((Path(__file__).resolve().parent / 'sql/ratings.sql').read_text())
 
         logger.info('Database prepared successfully.')
 
 
 def main():
-
     MOVIES_DB_PATH = Path(os.environ['MOVIES_DB_PATH'])
 
     if database_is_ready(MOVIES_DB_PATH):
