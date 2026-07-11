@@ -1,7 +1,7 @@
 from datetime import date
 import logging
 import os
-import sys
+from pathlib import Path
 from urllib3.util.retry import Retry
 
 import pandas as pd
@@ -10,7 +10,6 @@ from requests.adapters import HTTPAdapter
 
 from movie_etl.api import (
     AUTH_ENDPOINT,
-    GENRES_MOVIES_ENDPOINT,
     GENRES_ENDPOINT,
     MOVIE_RATINGS_ENDPOINT,
     MOVIES_ENDPOINT,
@@ -18,23 +17,14 @@ from movie_etl.api import (
 )
 from movie_etl.config import Settings
 from movie_etl.database import Database
-from movie_etl.storage import LocalStorage, NdjsonReader, NdjsonWriter, StorageFactory
+from movie_etl.storage import NdjsonReader, NdjsonWriter, StorageFactory
 
-
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(
-    logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-)
-
-logger = logging.getLogger('movie_etl')
-logger.setLevel(os.getenv('LOG_LEVEL', 'INFO').upper())
-logger.addHandler(handler)
-logger.propagate = False
+logger = logging.getLogger(__name__)
 
 
 def get_genres(api_client: ApiClient) -> str:
     """
-    Returns a list of genres returned by the API endpoints.
+    Returns a list of strings containing the path to the downloaded ndjson files of genres returned by the API endpoints.
     """
     prefix = f'genres/date={date.today().isoformat()}/'
 
@@ -48,41 +38,46 @@ def get_genres(api_client: ApiClient) -> str:
     return prefix
 
 
-def get_genres_movies(api_client: ApiClient) -> str:
+def get_movies(api_client: ApiClient) -> tuple[str]:
     """
-    Returns a list of relations genre/movie returned by the API endpoints.
+    Returns a list of strings containing the path to the downloaded ndjson files of relations movies returned by the API endpoints.
     """
-    prefix = f'genres_movies/date={date.today().isoformat()}/'
+    prefix_movies = f'movies/date={date.today().isoformat()}/'
+    prefix_genres_movies = f'genres_movies/date={date.today().isoformat()}/'
 
-    with NdjsonWriter(StorageFactory.create('local'), prefix=prefix) as writer:
-        nb_records = 0
-        for genres_movies in api_client.get_endpoint(GENRES_MOVIES_ENDPOINT):
-            writer.write(genres_movies)
-            nb_records += 1
-        logger.info('Downloaded %d genre_movie relations from endpoint.', nb_records)
+    with (
+        NdjsonWriter(
+            StorageFactory.create('local'), prefix=prefix_movies
+        ) as movies_writer,
+        NdjsonWriter(
+            StorageFactory.create('local'), prefix=prefix_genres_movies
+        ) as genres_movies_writer,
+    ):
+        nb_records_movies = 0
+        nb_records_genres_movies = 0
 
-    return prefix
+        for movie in api_client.get_endpoint(MOVIES_ENDPOINT):
+            genres = movie.pop('genres')
 
+            movies_writer.write(movie)
+            nb_records_movies += 1
 
-def get_movies(api_client: ApiClient) -> str:
-    """
-    Returns a list of relations movies returned by the API endpoints.
-    """
-    prefix = f'movies/date={date.today().isoformat()}/'
+            for genre in genres:
+                genres_movies_writer.write(
+                    {'genre_id': genre['id'], 'movie_id': movie['id']}
+                )
+                nb_records_genres_movies += 1
+        logger.info('Downloaded %d movies from endpoint.', nb_records_movies)
 
-    with NdjsonWriter(StorageFactory.create('local'), prefix=prefix) as writer:
-        nb_records = 0
-        for movies in api_client.get_endpoint(MOVIES_ENDPOINT):
-            writer.write(movies)
-            nb_records += 1
-        logger.info('Downloaded %d movies from endpoint.', nb_records)
-
-    return prefix
+    return (
+        prefix_movies,
+        prefix_genres_movies,
+    )
 
 
 def get_movie_ratings(api_client: ApiClient) -> str:
     """
-    Returns a list of relations movie/ratings returned by the API endpoints.
+    Returns a list of strings containing the path to the downloaded ndjson files of relations movie/ratings returned by the API endpoints.
     """
     prefix = f'ratings/date={date.today().isoformat()}/'
 
@@ -129,10 +124,11 @@ def extract(
 
         session.headers.update(headers)
 
+        movies_dataset, genres_movies_dataset = get_movies(api_client)
         dataset_paths = {
             'genres': get_genres(api_client),
-            'genres_movies': get_genres_movies(api_client),
-            'movies': get_movies(api_client),
+            'genres_movies': genres_movies_dataset,
+            'movies': movies_dataset,
             'movies_ratings': get_movie_ratings(api_client),
         }
 
@@ -149,12 +145,31 @@ def transform(datasets: dict[str, str]) -> pd.DataFrame:
     """
     logger.info('- STARTING TRANSFORMATION STEP -')
 
-    storage = StorageFactory.create('local')  # TODO: use storage oobject correctly
-    df_genres = NdjsonReader(f'storage/{datasets["genres"]}').read_all()
-    df_genres.rename(columns={'name': 'genre'}, inplace=True)
-    df_movies = NdjsonReader(f'storage/{datasets["movies"]}').read_all()
-    df_genres_movies = NdjsonReader(f'storage/{datasets["genres_movies"]}').read_all()
-    df_movies_ratings = NdjsonReader(f'storage/{datasets["movies_ratings"]}').read_all()
+    storage = StorageFactory.create('local')
+
+    # TODO: replace hardcoded path using storage object
+    df_genres = (
+        NdjsonReader(Path(os.environ['LOCAL_STORAGE']) / datasets['genres']).read_all()
+    ).rename(columns={'name': 'genre'})
+
+    # TODO: replace hardcoded path using storage object
+    df_movies = (
+        NdjsonReader(Path(os.environ['LOCAL_STORAGE']) / datasets['movies'])
+        .read_all()
+        .drop_duplicates(subset=['id'])
+    )
+
+    # TODO: replace hardcoded path using storage object
+    df_genres_movies = (
+        NdjsonReader(Path(os.environ['LOCAL_STORAGE']) / datasets['genres_movies'])
+        .read_all()
+        .drop_duplicates(subset=['genre_id', 'movie_id'])
+    )
+
+    # TODO: replace hardcoded path using storage object
+    df_movies_ratings = NdjsonReader(
+        Path(os.environ['LOCAL_STORAGE']) / datasets['movies_ratings']
+    ).read_all()
 
     # Aggregate ratings by movie
     df_aggregations = df_movies_ratings.groupby(['movie_id'], as_index=False).agg(
@@ -237,4 +252,3 @@ def run():
 
 if __name__ == '__main__':
     run()
-

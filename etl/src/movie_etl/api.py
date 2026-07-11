@@ -7,14 +7,13 @@ import requests
 from movie_etl.config import Settings
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(f'movie_etl.{__name__}')
 
 
 MAX_PAGE_SIZE = 2000
 
 AUTH_ENDPOINT = '/auth'
 GENRES_ENDPOINT = '/art/v3/genres'
-GENRES_MOVIES_ENDPOINT = '/art/v3/genres-movies'
 MOVIES_ENDPOINT = '/art/v3/movies'
 MOVIE_RATINGS_ENDPOINT = '/art/v3/ratings'
 

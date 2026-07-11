@@ -1,6 +1,7 @@
 CREATE TABLE genres AS
 SELECT DISTINCT
-    genre_id AS id,
-    genre_name AS name
-FROM stage_movies
+    UNNEST(genres).id AS id,
+    UNNEST(genres).name AS name
+
+FROM movies
 ;

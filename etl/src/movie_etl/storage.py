@@ -13,7 +13,7 @@ from urllib.parse import urljoin
 
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(f'movie_etl.{__name__}')
 
 
 def compress_file(source_path: Path, output_path: Path):
