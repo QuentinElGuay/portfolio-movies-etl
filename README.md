@@ -73,7 +73,25 @@ flowchart LR
     H --> I
 ```
 
-## Context
+## Getting Started
+
+### Prerequisites
+
+- Docker
+- Docker Compose
+
+### Run
+
+```bash
+cp .env.template .env
+docker compose up --build
+docker compose run prepare-data api postgres
+docker compose run --rm etl
+```
+
+
+# WIP
+
 
 ### Original project
 
@@ -127,25 +145,7 @@ For this challenge I decide to implement a simple in-memory Python pipeline that
 3.  Transform the data.
 4.  Load it into PostgreSQL.
 
-## Getting Started
 
-### Prerequisites
-
-- Docker
-- Docker Compose
-
-### Run
-
-```bash
-cp .env.template .env
-docker compose up --build
-```
-
-## Running the Pipeline
-
-```bash
-docker compose run --rm etl
-```
 
 ## Adding New Code
 
