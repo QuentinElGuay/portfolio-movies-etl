@@ -12,12 +12,6 @@ engineering practices - including clean architecture, reproducibility, automated
 infrastructure as code, observability, scalability, and maintainability - rather than processing
 very large datasets.
 
-### Goal
-
-The goal of this pipeline is to ingest data from a REST API into a data lake, clean it and transform
-it into analytics-ready datasets before loading it into a data warehouse, and ultimately use it to
-power a BI dashboard.
-
 ### Dataset
 
 For this project, I decided to use the `movies_metadata.csv` and `ratings.csv` files from the
@@ -25,6 +19,59 @@ For this project, I decided to use the `movies_metadata.csv` and `ratings.csv` f
 available on Kaggle. Rather having the pipeline read the CSV files directly, I decided to expose the
 data through a custom Flask REST API. This approach better simulates a real-world data engineering
 scenario in which data is ingested from an external service.
+
+### Goal
+
+The goal of this pipeline is to ingest data from a REST API into a data lake, clean it and transform
+it into analytics-ready datasets before loading it into a data warehouse, and ultimately use it to
+power a BI dashboard.
+
+### Architecture
+
+```mermaid
+flowchart LR
+    subgraph "Source (Kaggle)"
+        A[Movies Dataset]
+    end
+
+    subgraph Rest API
+        direction TB
+        B[(DuckDB)]
+        C[Flask]
+    end
+
+    subgraph Extract
+        direction TB
+        D["Python
+        (requests)"]
+        E@{shape: datastore, label: "Datalake"}
+    end
+
+    subgraph Transform
+        direction TB
+        F@{shape: datastore, label: "Datalake"}
+        G["Python
+        (Pandas)"]
+    end
+
+    subgraph Load
+        H[(Data
+        Warehouse)]
+    end
+
+    subgraph BI
+        I[Dashboard]
+    end
+
+    A -.-> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F --> G
+    G --> H
+    H --> I
+```
 
 ## Context
 
@@ -52,16 +99,6 @@ For this challenge I decide to implement a simple in-memory Python pipeline that
 - `requests` to download data from the API
 - `Pandas` to manipulate the data and load the result into a `Postgres` database
 - `docker compose` to coordinate the services
-
-## Architecture
-
-```text
-Movies API
-    |
-Python ETL
-    |
-PostgreSQL
-```
 
 ## Project Structure
 
