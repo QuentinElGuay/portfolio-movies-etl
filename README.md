@@ -8,8 +8,8 @@ assignment from a hiring process and later evolved into the final project for th
 [DataTalks.Club](https://datatalks.club).
 
 As a portfolio project, this repository focuses on demonstrating production-ready software and data
-engineering practices - including clean architecture, reproducibility, automated testing, CI/CD,
-infrastructure as code, observability, scalability, and maintainability - rather than processing
+engineering practices - including clean architecture, reproducibility, orchestration, automated
+testing, CI/CD, infrastructure as code, observability and maintainability - rather than processing
 very large datasets.
 
 ### Dataset
@@ -89,9 +89,7 @@ docker compose run prepare-data api postgres
 docker compose run --rm etl
 ```
 
-
 # WIP
-
 
 ### Original project
 
@@ -144,8 +142,6 @@ For this challenge I decide to implement a simple in-memory Python pipeline that
 2.  Download movie data.
 3.  Transform the data.
 4.  Load it into PostgreSQL.
-
-
 
 ## Adding New Code
 
