@@ -6,6 +6,20 @@ application, transformed, and loaded into PostgreSQL.
 ## Disclaimer
 This project is intended for educational and portfolio purposes. Commercial use is not the intended goal.
 
+## Context
+This project was first created as a technical challenge for a senior data engineer hiring process. The challenge was as follow:
+> You have access to a data source that exposes the following API: 
+>
+> * POST - /auth
+> * GET - /art/v3/genres
+> * GET - /art/v3/genres/{genreId}/movies
+> * GET - /art/v3/movies/{movieId}
+> * GET - /art/v3/movies/{movieId}/ratings
+>
+> Inferring the information each endpoint contains:
+> 1. Create a Postgres table that will contain the main information from these endpoints;
+> 2. Write an ETL in Python that will populate this schema.
+
 ## Architecture
 
 ``` text
