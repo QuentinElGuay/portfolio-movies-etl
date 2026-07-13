@@ -86,7 +86,7 @@ flowchart LR
 - Docker
 - Docker Compose
 
-### 
+### Run the project locally
 
 Create the `.env` file from the `.env.template` (no change required to run locally).
 ```bash
