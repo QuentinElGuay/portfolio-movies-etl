@@ -38,7 +38,7 @@ def get_genres(api_client: ApiClient) -> str:
     return prefix
 
 
-def get_movies(api_client: ApiClient) -> tuple[str]:
+def get_movies(api_client: ApiClient) -> tuple[str, str]:
     """
     Returns a list of strings containing the path to the downloaded ndjson files of relations movies returned by the API endpoints.
     """

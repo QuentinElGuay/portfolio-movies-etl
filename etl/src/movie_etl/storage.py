@@ -28,7 +28,7 @@ def compress_file(source_path: Path, output_path: Path):
 
 class ObjectStorage(ABC):
     @abstractmethod
-    def upload(self, local_path: Path, remote_name: str):
+    def upload(self, local_path: Path, remote_name: str) -> str:
         pass
 
     @abstractmethod
@@ -40,7 +40,7 @@ class LocalStorage(ObjectStorage):
     def __init__(self):
         self.folder = Path(os.environ['LOCAL_STORAGE'])
 
-    def upload(self, local_path: Path, remote_name: str):
+    def upload(self, local_path: Path, remote_name: str) -> str:
         target_path = self.folder / remote_name
         target_dir = target_path.parent
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -49,7 +49,7 @@ class LocalStorage(ObjectStorage):
 
         logging.info('Uploading file to %s', target_path)
 
-        return target_path
+        return str(target_path)
 
     def download(self, remote_name: str) -> Path:
         object_path = Path(self.folder) / remote_name
@@ -62,7 +62,7 @@ class S3Storage(ObjectStorage):
     def __init__(self, bucket: str):
         self.bucket = bucket
 
-    def upload(self, local_path: Path, remote_name: str) -> None:
+    def upload(self, local_path: Path, remote_name: str) -> str:
         raise NotImplementedError
 
     def download(self, remote_name: str) -> Path:
@@ -98,7 +98,7 @@ class NdjsonWriter:
         prefix: str,
         max_file_size_mb: int = 64,
         file_part: int = 0,
-        local_folder: Path = None,
+        local_folder: Path | None = None,
     ):
         self.storage = object_storage
         self.prefix = prefix
@@ -141,7 +141,7 @@ class NdjsonWriter:
             file_path = output_path
             file_key = file_key.with_name(file_key.name + '.gz')
 
-        self.storage.upload(file_path, file_key)
+        self.storage.upload(file_path, str(file_key))
 
     def write(self, record: dict[str, Any]) -> None:
         """Write a single JSON record to the current file."""
@@ -174,7 +174,7 @@ class NdjsonReader:
 
     def __init__(
         self,
-        folder_path: str,
+        folder_path: Path,
         extensions: list[str] = [
             '.ndjson',
             '.jsonl',
