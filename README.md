@@ -1,5 +1,5 @@
 # End to End Movies ETL Data Engineering Pipeline
-[![Release](https://img.shields.io/github/v/release/quentinleguay/portfolio-movies-etl)](../../releases)
+[![Release](https://img.shields.io/github/v/release/quentinElGuay/portfolio-movies-etl)](../../releases)
 
 > [!IMPORTANT]
 > 🚧 This project is actively developed. New features are implemented incrementally while maintaining a working end-to-end pipeline. See the Roadmap section for planned improvements.
