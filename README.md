@@ -1,4 +1,8 @@
 # End to End Movies ETL Data Engineering Pipeline
+[![Release](https://img.shields.io/github/v/release/quentinleguay/movies-etl)](../../releases)
+
+> [!IMPORTANT]
+> 🚧 This project is actively developed. New features are implemented incrementally while maintaining a working end-to-end pipeline. See the Roadmap section for planned improvements.
 
 ## Overview
 
@@ -79,6 +83,21 @@ flowchart LR
     I --> J
 ```
 
+### Progress
+
+- ✅ REST API
+- ✅ Batch ingestion
+- ✅ Raw data lake (Bronze)
+- 🚧 ELT pipeline
+- 🚧 Dimensional modeling (Star Schema)
+- ⏳ Gold layer
+- ⏳ BI dashboard
+- ⏳ Airflow orchestration
+- ⏳ Cloud Deployment
+- ⏳ Infrastructure as Code
+- ⏳ Automated testing
+- ⏳ CI/CD...
+
 ## Getting Started
 
 ### Prerequisites
@@ -109,6 +128,8 @@ docker compose run --rm etl
 ```
 
 # Work In Progress
+
+Sections under this line are on progress and shouldn't be considered as definitive.
 
 ### Original project
 
