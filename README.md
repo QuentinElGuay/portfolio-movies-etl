@@ -129,7 +129,8 @@ docker compose run --rm etl
 
 # Work In Progress
 
-Sections under this line are on progress and shouldn't be considered as definitive.
+> [!NOTE]
+> Sections under this note are on progress and shouldn't be considered as reliable or definitive.
 
 ### Original project
 
