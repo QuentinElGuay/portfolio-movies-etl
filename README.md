@@ -86,13 +86,26 @@ flowchart LR
 - Docker
 - Docker Compose
 
-### Run
+### 
 
+Create the `.env` file from the `.env.template` (no change required to run locally).
 ```bash
 cp .env.template .env
-docker compose up --build  # Build the local images
-docker compose run prepare-data api postgres  # Run the API and database
-docker compose run --rm etl  # Run the ETL pipeline
+```
+
+ Build the local images
+```bash
+docker compose up --
+```
+
+Run the API and database service in the background
+```bash
+docker compose run prepare-data api postgres -d
+```
+
+Run the ETL pipeline
+```bash
+docker compose run --rm etl 
 ```
 
 # Work In Progress
