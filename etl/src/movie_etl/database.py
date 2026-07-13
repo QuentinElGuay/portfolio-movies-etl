@@ -108,6 +108,6 @@ class Database:
         with self.engine.connect() as connection:
             count_query = text('SELECT COUNT(*) FROM movie;')
             result = connection.execute(count_query)
-            total_lines = result.scalar()
+            total_lines = result.scalar_one()
 
         return total_lines
