@@ -2,23 +2,24 @@
 
 ## Overview
 
-This project demonstrates a data engineering pipeline. It was inspired by a technical take-home
-assignment from a hiring process and later evolved into the final project for the
-[Data Engineering Zoomcamp](https://github.com/DataTalksClub/data-engineering-zoomcamp) by
+This project demonstrates a production-inspired batch data engineering pipeline. It was inspired by
+a technical take-home assignment from a hiring process and later evolved into the final project for
+the [Data Engineering Zoomcamp](https://github.com/DataTalksClub/data-engineering-zoomcamp) by
 [DataTalks.Club](https://datatalks.club).
 
 As a portfolio project, this repository focuses on demonstrating production-ready software and data
 engineering practices - including clean architecture, reproducibility, orchestration, automated
-testing, CI/CD, infrastructure as code, observability and maintainability - rather than processing
-very large datasets.
+testing, CI/CD, infrastructure as code, data quality, observability and maintainability - rather
+than processing very large datasets.
 
 ### Dataset
 
 For this project, I decided to use the `movies_metadata.csv` and `ratings.csv` files from the
 [Movies Dataset from Rounak Banik](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset/)
-available on Kaggle. Rather having the pipeline read the CSV files directly, I decided to expose the
-data through a custom Flask REST API. This approach better simulates a real-world data engineering
-scenario in which data is ingested from an external service.
+available on Kaggle. Rather than having the pipeline read the CSV files directly, I decided to
+expose the data through a custom Flask REST API with multiple paginated collection endpoints. This
+approach better simulates a real-world data engineering scenario in which data is ingested from an
+external service.
 
 ### Goal
 
@@ -40,27 +41,31 @@ flowchart LR
         C[Flask]
     end
 
-    subgraph Extract
-        direction TB
-        D["Python
-        (requests)"]
-        E@{shape: datastore, label: "Datalake"}
-    end
+    subgraph Pipeline
+        direction LR
 
-    subgraph Transform
-        direction TB
-        F@{shape: datastore, label: "Datalake"}
-        G["Python
-        (Pandas)"]
-    end
+        subgraph Ingestion
+            direction TB
+            D["Extraction"]
+            E@{shape: datastore, label: "Raw/Bronze layer"}
+        end
 
-    subgraph Load
-        H[(Data
-        Warehouse)]
+        subgraph Transformation
+            direction TB
+            F["Clean & Transform"]
+            G@{shape: datastore, label: "Refined/Silver layer"}
+        end
+
+        subgraph Serving
+            direction TB
+            H["Load"]
+            I[(Data
+            Warehouse)]
+        end
     end
 
     subgraph BI
-        I[Dashboard]
+        J[Dashboard]
     end
 
     A -.-> B
@@ -71,6 +76,7 @@ flowchart LR
     F --> G
     G --> H
     H --> I
+    I --> J
 ```
 
 ## Getting Started
@@ -84,12 +90,12 @@ flowchart LR
 
 ```bash
 cp .env.template .env
-docker compose up --build
-docker compose run prepare-data api postgres
-docker compose run --rm etl
+docker compose up --build  # Build the local images
+docker compose run prepare-data api postgres  # Run the API and database
+docker compose run --rm etl  # Run the ETL pipeline
 ```
 
-# WIP
+# Work In Progress
 
 ### Original project
 
