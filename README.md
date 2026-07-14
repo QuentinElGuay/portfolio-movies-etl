@@ -145,7 +145,8 @@ flowchart LR
 
 ## Project Structure
 
-> [!IMPORTANT] Work in progress
+> [!IMPORTANT]
+>  Work in progress
 
 ```text
 .
