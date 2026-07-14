@@ -1,8 +1,12 @@
 # End to End Movies ETL Data Engineering Pipeline
+
 [![GitHub Release](https://img.shields.io/github/v/release/QuentinElGuay/portfolio-movies-etl)](https://github.com/QuentinElGuay/portfolio-movies-etl/releases)
 
-> [!IMPORTANT]
-> 🚧 This project is actively developed. New features are implemented incrementally while maintaining a working end-to-end pipeline. See the Roadmap section for planned improvements.
+## Status
+
+🚧 This project is actively developed. New features are implemented incrementally while maintaining a working end-to-end pipeline. See the Roadmap section for planned improvements.
+
+Current development is targeting **v0.3.0**.
 
 ## Overview
 
@@ -16,6 +20,13 @@ engineering practices - including clean architecture, reproducibility, orchestra
 testing, CI/CD, infrastructure as code, data quality, observability and maintainability - rather
 than processing very large datasets.
 
+### Goal
+
+Movie databases contain a wealth of information about films, genres, and user ratings, but the raw
+data is not immediately suitable for analytics. This project builds an end-to-end ELT pipeline that
+collects, refines, and models the data into a dimensional warehouse to support interactive
+dashboards and business intelligence.
+
 ### Dataset
 
 For this project, I decided to use the `movies_metadata.csv` and `ratings_small.csv` files from the
@@ -25,24 +36,26 @@ expose the data through a custom Flask REST API with multiple paginated collecti
 approach better simulates a real-world data engineering scenario in which data is ingested from an
 external service.
 
-### Goal
-
-The goal of this pipeline is to ingest data from a REST API into a data lake, clean it and transform
-it into analytics-ready datasets before loading it into a data warehouse, and ultimately use it to
-power a BI dashboard.
-
 ### Architecture
+
+The pipeline follows the Medallion architecture and lakehouse design principles, progressively refining data through
+successive storage layers, increasing in quality and structure before being exposed for analytical consumption.
+
+1. **Bronze** – Ingest data from a REST API and store it as NDJSON.
+2. **Silver** – Validate, clean, and standardize the raw data into Parquet datasets.
+3. **Gold** – Load the curated data into a dimensional (star schema) data model to support analytical workloads.
+4. **Consumption** – Expose business metrics through a Business Intelligence dashboard.
 
 ```mermaid
 flowchart LR
     subgraph "Source (Kaggle)"
-        A[Movies Dataset]
+        KAGGLE[Movies Dataset]
     end
 
     subgraph Rest API
         direction TB
-        B[(DuckDB)]
-        C[Flask]
+        DUCKDB[(DuckDB)]
+        API[Flask]
     end
 
     subgraph Pipeline
@@ -50,53 +63,69 @@ flowchart LR
 
         subgraph Ingestion
             direction TB
-            D["Extract"]
-            E@{shape: datastore, label: "Raw/Bronze layer"}
+            EXTRACT["Extract"]
+            NDJSON@{ shape: docs, label: "NDJSON" }
+            BRONZE@{shape: datastore, label: "Raw/
+            Bronze layer"}
         end
 
-        subgraph Transformation
+        subgraph Standardization
             direction TB
-            F["Clean & Transform"]
-            G@{shape: datastore, label: "Refined/Silver layer"}
+            CLEAN["Clean & Standardize"]
+            PARQUET@{ shape: docs, label: "Parquet" }
+            SILVER@{shape: datastore, label: "Refined/
+            Silver layer"}
         end
 
         subgraph Serving
             direction TB
-            H["Load"]
-            I[(Data
+            LOAD["Load"]
+            DW[(Data
             Warehouse)]
+            GOLD@{shape: datastore, label: "Data Marts/
+            Gold layer"}
         end
     end
 
     subgraph BI
-        J[Dashboard]
+        DASHBOARD[Dashboard]
     end
 
-    A -.-> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F --> G
-    G --> H
-    H --> I
-    I --> J
+    KAGGLE -.-> DUCKDB
+    DUCKDB --> API
+    API --> EXTRACT
+    EXTRACT --> NDJSON
+    NDJSON --> BRONZE
+    BRONZE --> CLEAN
+    CLEAN --> PARQUET
+    PARQUET --> SILVER
+    SILVER --> LOAD
+    LOAD --> DW
+    DW --> GOLD
+    GOLD -.-> DASHBOARD
 ```
 
-### Progress
+### Release History
+
+- **v0.1.0:** Initial ETL pipeline, REST API ingestion, PostgreSQL loading, and Docker Compose.
+- **v0.2.0:** ELT architecture and dimensional modeling (star schema).
+- **v0.3.0** _(in progress)_: API validation with Pydantic.
+
+### Roadmap
 
 - ✅ REST API
 - ✅ Batch ingestion
 - ✅ Raw data lake (Bronze)
-- 🚧 ELT pipeline
-- 🚧 Dimensional modeling (Star Schema)
+- ✅ ELT pipeline
+- ✅ Dimensional modeling (Star Schema)
+- 🚧 API validation (Pydantic)
 - ⏳ Gold layer
 - ⏳ BI dashboard
 - ⏳ Airflow orchestration
-- ⏳ Cloud Deployment
+- ⏳ Cloud deployment
 - ⏳ Infrastructure as Code
 - ⏳ Automated testing
-- ⏳ CI/CD...
+- ⏳ CI/CD
 
 ## Getting Started
 
@@ -108,23 +137,27 @@ flowchart LR
 ### Run the project locally
 
 Create the `.env` file from the `.env.template` (no change required to run locally).
+
 ```bash
 cp .env.template .env
 ```
 
- Build the local images
+Build the local images
+
 ```bash
 docker compose build
 ```
 
 Run the API and database service in the background
+
 ```bash
 docker compose up prepare-data api postgres -d
 ```
 
 Run the ETL pipeline
+
 ```bash
-docker compose run --rm etl 
+docker compose run --rm etl
 ```
 
 ### Clean up Docker resources
