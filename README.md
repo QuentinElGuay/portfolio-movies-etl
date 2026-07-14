@@ -186,7 +186,7 @@ To remove all containers, networks, volumes, and locally built images created by
 docker compose down --volumes --rmi local
 ```
 
-### Roadmap
+## Roadmap
 
 - ✅ REST API
 - ✅ Batch ingestion
@@ -202,7 +202,7 @@ docker compose down --volumes --rmi local
 - ⏳ Automated testing
 - ⏳ CI/CD
 
-### Release History
+## Release History
 
 - **v0.1.0:** Initial ETL pipeline, REST API ingestion, PostgreSQL loading, and Docker Compose.
 - **v0.2.0:** ELT architecture and dimensional modeling (star schema).
