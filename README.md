@@ -18,7 +18,7 @@ than processing very large datasets.
 
 ### Dataset
 
-For this project, I decided to use the `movies_metadata.csv` and `ratings.csv` files from the
+For this project, I decided to use the `movies_metadata.csv` and `ratings_small.csv` files from the
 [Movies Dataset from Rounak Banik](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset/)
 available on Kaggle. Rather than having the pipeline read the CSV files directly, I decided to
 expose the data through a custom Flask REST API with multiple paginated collection endpoints. This
@@ -114,12 +114,12 @@ cp .env.template .env
 
  Build the local images
 ```bash
-docker compose up --
+docker compose build
 ```
 
 Run the API and database service in the background
 ```bash
-docker compose run prepare-data api postgres -d
+docker compose up prepare-data api postgres -d
 ```
 
 Run the ETL pipeline
@@ -127,9 +127,18 @@ Run the ETL pipeline
 docker compose run --rm etl 
 ```
 
+### Clean up Docker resources
+
+To remove all containers, networks, volumes, and locally built images created by this project:
+
+```bash
+docker compose down --volumes --rmi local
+```
+
 # Work In Progress
 
-Sections under this line are on progress and shouldn't be considered as definitive.
+> [!NOTE]
+> Sections under this note are on progress and shouldn't be considered as reliable or definitive.
 
 ### Original project
 
@@ -139,10 +148,10 @@ The challenge was as follow:
 > You have access to a data source that exposes the following API:
 >
 > - POST - /auth
-> - GET - /art/v3/genres
-> - GET - /art/v3/genres/{genreId}/movies
-> - GET - /art/v3/movies/{movieId}
-> - GET - /art/v3/movies/{movieId}/ratings
+> - GET - /api/v1/genres
+> - GET - /api/v1/genres/{genreId}/movies
+> - GET - /api/v1/movies/{movieId}
+> - GET - /api/v1/movies/{movieId}/ratings
 >
 > Inferring the information each endpoint contains:
 >
