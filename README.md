@@ -25,10 +25,9 @@ than processing very large datasets.
 
 ## Goal
 
-Movie databases contain a wealth of information about films, genres, and user ratings, but the raw
-data is not immediately suitable for analytics. This project builds an end-to-end ELT pipeline that
-collects, refines, and models the data into a dimensional warehouse to support interactive
-dashboards and business intelligence.
+Movie metadata and user ratings contain valuable information for understanding audience preferences
+and trends. This project builds an end-to-end ELT pipeline that ingests, refines, and models this
+data into a dimensional warehouse to support interactive dashboards and business intelligence.
 
 ## Dataset
 
@@ -41,9 +40,9 @@ external service.
 
 ## Architecture
 
-The pipeline follows the Medallion architecture and lakehouse design principles, progressively
-refining data through successive storage layers, increasing in quality and structure before being
-exposed for analytical consumption.
+The pipeline follows the Medallion architecture and lakehouse design principles. Data is
+progressively refined through successive storage layers, increasing in quality and structure before
+being exposed for analytical consumption.
 
 1. **Bronze** – Ingest data from a REST API and store it as NDJSON.
 2. **Silver** – Validate, clean, and standardize the raw data into Parquet datasets.
