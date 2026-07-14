@@ -2,8 +2,11 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/QuentinElGuay/portfolio-movies-etl)](https://github.com/QuentinElGuay/portfolio-movies-etl/releases)
 
-> [!IMPORTANT]
-> 🚧 This project is actively developed. New features are implemented incrementally while maintaining a working end-to-end pipeline. See the Roadmap section for planned improvements.
+## Status
+
+🚧 This project is actively developed. New features are implemented incrementally while maintaining a working end-to-end pipeline. See the Roadmap section for planned improvements.
+
+Current development is targeting **v0.3.0**.
 
 ## Overview
 
@@ -17,6 +20,13 @@ engineering practices - including clean architecture, reproducibility, orchestra
 testing, CI/CD, infrastructure as code, data quality, observability and maintainability - rather
 than processing very large datasets.
 
+### Goal
+
+Movie databases contain a wealth of information about films, genres, and user ratings, but the raw
+data is not immediately suitable for analytics. This project builds an end-to-end ELT pipeline that
+collects, refines, and models the data into a dimensional warehouse to support interactive
+dashboards and business intelligence.
+
 ### Dataset
 
 For this project, I decided to use the `movies_metadata.csv` and `ratings_small.csv` files from the
@@ -26,20 +36,13 @@ expose the data through a custom Flask REST API with multiple paginated collecti
 approach better simulates a real-world data engineering scenario in which data is ingested from an
 external service.
 
-### Goal
-
-The goal of this pipeline is to ingest data from a REST API into a data lake, clean it and transform
-it into analytics-ready datasets before loading it into a data warehouse, and ultimately use it to
-power a BI dashboard.
-
 ### Architecture
 
-The goal of this project is to implement an ELT pipeline following the Medallion Architecture and lakehouse design principles. Data is first loaded into progressively refined storage layers before being transformed into an analytical data model for reporting.
+The pipeline follows the Medallion architecture and lakehouse design principles, progressively refining data through
+successive storage layers, increasing in quality and structure before being exposed for analytical consumption.
 
-The target pipeline consists of four stages:
-
-1. **Bronze** – Ingest data from a REST API and store it as NDJSON in the raw layer.
-2. **Silver** – Validate, clean, and standardize the raw data into Parquet datasets in the refined layer.
+1. **Bronze** – Ingest data from a REST API and store it as NDJSON.
+2. **Silver** – Validate, clean, and standardize the raw data into Parquet datasets.
 3. **Gold** – Load the curated data into a dimensional (star schema) data model to support analytical workloads.
 4. **Consumption** – Expose business metrics through a Business Intelligence dashboard.
 
@@ -101,13 +104,14 @@ flowchart LR
     DW --> GOLD
     GOLD -.-> DASHBOARD
 ```
-## Status
 
-🚧 Active development
+### Release History
 
-Current development is targeting **v0.3.0**.
+- **v0.1.0:** Initial ETL pipeline, REST API ingestion, PostgreSQL loading, and Docker Compose.
+- **v0.2.0:** ELT architecture and dimensional modeling (star schema).
+- **v0.3.0** _(in progress)_: API validation with Pydantic.
 
-### Feature Progress
+### Roadmap
 
 - ✅ REST API
 - ✅ Batch ingestion
@@ -122,12 +126,6 @@ Current development is targeting **v0.3.0**.
 - ⏳ Infrastructure as Code
 - ⏳ Automated testing
 - ⏳ CI/CD
-
-### Release History
-
-- **v0.1.0:** REST API ingestion, simple standardization, PostgreSQL loading and container orchestration.
-- **v0.2.0:** ELT strategy and dimensional modeling (star schema).
-- **v0.3.0** *(in progress)*: REST API validation using Pydantic.
 
 ## Getting Started
 
