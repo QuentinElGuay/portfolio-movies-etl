@@ -2,11 +2,14 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/QuentinElGuay/portfolio-movies-etl)](https://github.com/QuentinElGuay/portfolio-movies-etl/releases)
 
-## Status
-
-🚧 This project is actively developed. New features are implemented incrementally while maintaining a working end-to-end pipeline. See the Roadmap section for planned improvements.
-
-Current development is targeting **v0.3.0**.
+> [!IMPORTANT] 🚧 This project is under active development. New features are implemented
+> incrementally while maintaining a working end-to-end pipeline. Some components are intentionally
+> incomplete or subject to refactoring as the architecture evolves. See the Roadmap section for
+> planned improvements.
+>
+> Current development is targeting **v0.3.0**, focused on API validation with Pydantic. Future
+> milestones include a Gold layer, BI dashboard, Airflow orchestration, cloud deployment, CI/CD and
+> automated testing.
 
 ## Overview
 
@@ -20,14 +23,14 @@ engineering practices - including clean architecture, reproducibility, orchestra
 testing, CI/CD, infrastructure as code, data quality, observability and maintainability - rather
 than processing very large datasets.
 
-### Goal
+## Goal
 
 Movie databases contain a wealth of information about films, genres, and user ratings, but the raw
 data is not immediately suitable for analytics. This project builds an end-to-end ELT pipeline that
 collects, refines, and models the data into a dimensional warehouse to support interactive
 dashboards and business intelligence.
 
-### Dataset
+## Dataset
 
 For this project, I decided to use the `movies_metadata.csv` and `ratings_small.csv` files from the
 [Movies Dataset from Rounak Banik](https://www.kaggle.com/datasets/rounakbanik/the-movies-dataset/)
@@ -36,14 +39,16 @@ expose the data through a custom Flask REST API with multiple paginated collecti
 approach better simulates a real-world data engineering scenario in which data is ingested from an
 external service.
 
-### Architecture
+## Architecture
 
-The pipeline follows the Medallion architecture and lakehouse design principles, progressively refining data through
-successive storage layers, increasing in quality and structure before being exposed for analytical consumption.
+The pipeline follows the Medallion architecture and lakehouse design principles, progressively
+refining data through successive storage layers, increasing in quality and structure before being
+exposed for analytical consumption.
 
 1. **Bronze** – Ingest data from a REST API and store it as NDJSON.
 2. **Silver** – Validate, clean, and standardize the raw data into Parquet datasets.
-3. **Gold** – Load the curated data into a dimensional (star schema) data model to support analytical workloads.
+3. **Gold** – Load the curated data into a dimensional (star schema) data model to support
+   analytical workloads.
 4. **Consumption** – Expose business metrics through a Business Intelligence dashboard.
 
 ```mermaid
@@ -105,27 +110,40 @@ flowchart LR
     GOLD -.-> DASHBOARD
 ```
 
-### Release History
+## Tech Stack
 
-- **v0.1.0:** Initial ETL pipeline, REST API ingestion, PostgreSQL loading, and Docker Compose.
-- **v0.2.0:** ELT architecture and dimensional modeling (star schema).
-- **v0.3.0** _(in progress)_: API validation with Pydantic.
+| Category         | Technology             | Purpose                                    |
+| ---------------- | ---------------------- | ------------------------------------------ |
+| Source           | Kaggle                 | Movie dataset                              |
+| REST API         | Flask, DuckDB          | Simulate an external data source           |
+| Ingestion        | Python, Requests       | Extract data from the REST API             |
+| Data Lake        | NDJSON, Parquet        | Bronze and Silver storage layers           |
+| Transformation   | Pandas                 | Clean, standardize, and prepare data       |
+| Data Warehouse   | PostgreSQL, SQLAlchemy | Store the dimensional model                |
+| Containerization | Docker Compose         | Reproducible local development environment |
+| Future           | Pydantic               | Data validation                            |
+| Future           | Airflow                | Workflow orchestration                     |
+| Future           | GitHub Actions         | CI/CD                                      |
+| Future           | Metabase               | Business Intelligence                      |
 
-### Roadmap
+## Project Structure
 
-- ✅ REST API
-- ✅ Batch ingestion
-- ✅ Raw data lake (Bronze)
-- ✅ ELT pipeline
-- ✅ Dimensional modeling (Star Schema)
-- 🚧 API validation (Pydantic)
-- ⏳ Gold layer
-- ⏳ BI dashboard
-- ⏳ Airflow orchestration
-- ⏳ Cloud deployment
-- ⏳ Infrastructure as Code
-- ⏳ Automated testing
-- ⏳ CI/CD
+> [!IMPORTANT] Work in progress
+
+## Project Structure
+
+```text
+.
+├── api/                Flask REST API exposing the movie dataset
+├── etl/                ELT pipeline implementation
+├── docs/               Project documentation (future)
+├── .github/            GitHub Actions workflows (future)
+├── docker-compose.yml  Local development environment
+└── README.md
+```
+
+The project is organized into independent components to reflect a production-oriented architecture.
+Each module has a single responsibility and independent environment.
 
 ## Getting Started
 
@@ -168,111 +186,37 @@ To remove all containers, networks, volumes, and locally built images created by
 docker compose down --volumes --rmi local
 ```
 
-# Work In Progress
+### Roadmap
 
-> [!NOTE]
-> Sections under this note are on progress and shouldn't be considered as reliable or definitive.
+- ✅ REST API
+- ✅ Batch ingestion
+- ✅ Raw data lake (Bronze)
+- ✅ ELT pipeline
+- ✅ Dimensional modeling (Star Schema)
+- 🚧 API validation (Pydantic)
+- ⏳ Gold layer
+- ⏳ BI dashboard
+- ⏳ Airflow orchestration
+- ⏳ Cloud deployment
+- ⏳ Infrastructure as Code
+- ⏳ Automated testing
+- ⏳ CI/CD
 
-### Original project
+### Release History
 
-This project was first created as a technical challenge for a senior data engineer hiring process.
-The challenge was as follow:
+- **v0.1.0:** Initial ETL pipeline, REST API ingestion, PostgreSQL loading, and Docker Compose.
+- **v0.2.0:** ELT architecture and dimensional modeling (star schema).
+- **v0.3.0** _(in progress)_: API validation with Pydantic.
 
-> You have access to a data source that exposes the following API:
->
-> - POST - /auth
-> - GET - /api/v1/genres
-> - GET - /api/v1/genres/{genreId}/movies
-> - GET - /api/v1/movies/{movieId}
-> - GET - /api/v1/movies/{movieId}/ratings
->
-> Inferring the information each endpoint contains:
->
-> 1. Create a Postgres table that will contain the main information from these endpoints;
-> 2. Write an ETL in Python that will populate this schema.
+## Contributing
 
-For this challenge I decide to implement a simple in-memory Python pipeline that would use:
+This repository is maintained as a personal portfolio and learning project. While external
+contributions are not currently accepted, feedback, bug reports, and suggestions are always welcome
+through GitHub Issues.
 
-- `Flask` reading from JSON files to simulate the API
-- `requests` to download data from the API
-- `Pandas` to manipulate the data and load the result into a `Postgres` database
-- `docker compose` to coordinate the services
+## License
 
-## Project Structure
+This repository is publicly available for educational, portfolio, and evaluation purposes.
 
-```text
-.
-├── api/
-├── etl/
-├── docker-compose.yml
-├── .env.template
-└── README.md
-```
-
-## Technology Stack
-
-- Python
-- Flask
-- PostgreSQL
-- SQLAlchemy
-- Docker Compose
-- uv
-
-## Pipeline Overview
-
-1.  Authenticate with the API.
-2.  Download movie data.
-3.  Transform the data.
-4.  Load it into PostgreSQL.
-
-## Adding New Code
-
-- Add new API endpoints in `api/`.
-- Add extraction and transformation logic in `etl/`.
-- Add new database tables and loaders as needed.
-- Store configuration in `.env`.
-
-## Next Steps
-
-### Code Quality
-
-- Unit tests
-- Integration tests
-- Better logging
-- Improved error handling
-
-### CI/CD
-
-- Automated testing
-- Docker image builds
-- Deployment pipeline
-
-### Orchestration
-
-- Airflow DAG
-- Scheduling
-- Retries
-- Monitoring
-
-### Cloud
-
-- S3 data lake
-- dbt transformations
-- Trino or BigQuery
-
-### Performance
-
-- Parallel API requests
-- Batch inserts
-- Incremental loading
-
-## Acknowledgements
-
-- Dataset source
-- API inspiration
-- Useful references
-
-## Disclaimer
-
-This project is intended for educational and portfolio purposes. Commercial use is not the intended
-goal.
+The source code is **not open source**. All rights are reserved by the author. No permission is
+granted to copy, modify, redistribute, or use this software without prior written permission.
