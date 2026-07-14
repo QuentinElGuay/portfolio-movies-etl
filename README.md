@@ -65,7 +65,7 @@ flowchart LR
             direction TB
             EXTRACT["Extract"]
             NDJSON@{ shape: docs, label: "NDJSON" }
-            BRONZE@{shape: datastore, label: "Raw/
+            BRONZE@{shape: datastore, label: "Raw /
             Bronze layer"}
         end
 
@@ -73,7 +73,7 @@ flowchart LR
             direction TB
             CLEAN["Clean & Standardize"]
             PARQUET@{ shape: docs, label: "Parquet" }
-            SILVER@{shape: datastore, label: "Refined/
+            SILVER@{shape: datastore, label: "Refined /
             Silver layer"}
         end
 
@@ -82,7 +82,7 @@ flowchart LR
             LOAD["Load"]
             DW[(Data
             Warehouse)]
-            GOLD@{shape: datastore, label: "Data Marts/
+            GOLD@{shape: datastore, label: "Data Marts /
             Gold layer"}
         end
     end
