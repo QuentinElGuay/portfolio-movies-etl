@@ -86,26 +86,26 @@ flowchart LR
         subgraph Ingestion
             direction TB
             EXTRACT["Extract"]
-            NDJSON@{ shape: docs, label: "NDJSON" }
             BRONZE@{shape: datastore, label: "Raw /
             Bronze layer"}
+            NDJSON@{ shape: docs, label: "NDJSON" }
         end
 
         subgraph Standardization
             direction TB
             CLEAN["Clean & Standardize"]
-            PARQUET@{ shape: docs, label: "Parquet" }
             SILVER@{shape: datastore, label: "Refined /
             Silver layer"}
+            PARQUET@{ shape: docs, label: "Parquet" }
         end
 
         subgraph Serving
             direction TB
             LOAD["Load"]
-            DW[(Data
-            Warehouse)]
             GOLD@{shape: datastore, label: "Data Marts /
             Gold layer"}
+            DW[(Data
+            Warehouse)]
         end
     end
 
@@ -116,15 +116,15 @@ flowchart LR
     KAGGLE -.-> DUCKDB
     DUCKDB --> API
     API --> EXTRACT
-    EXTRACT --> NDJSON
-    NDJSON --> BRONZE
-    BRONZE --> CLEAN
-    CLEAN --> PARQUET
-    PARQUET --> SILVER
+    EXTRACT --> BRONZE
+    BRONZE --> NDJSON
+    NDJSON --> CLEAN
+    CLEAN --> SILVER
+    SILVER --> PARQUET
     SILVER --> LOAD
-    LOAD --> DW
-    DW --> GOLD
-    GOLD -.-> DASHBOARD
+    LOAD --> GOLD
+    GOLD --> DW
+    DW -.-> DASHBOARD
 ```
 
 ## Tech Stack
