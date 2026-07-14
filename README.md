@@ -1,4 +1,5 @@
 # End to End Movies ETL Data Engineering Pipeline
+
 [![GitHub Release](https://img.shields.io/github/v/release/QuentinElGuay/portfolio-movies-etl)](https://github.com/QuentinElGuay/portfolio-movies-etl/releases)
 
 > [!IMPORTANT]
@@ -33,16 +34,25 @@ power a BI dashboard.
 
 ### Architecture
 
+The goal of this project is to implement an ELT pipeline following the Medallion Architecture and lakehouse design principles. Data is first loaded into progressively refined storage layers before being transformed into an analytical data model for reporting.
+
+The target pipeline consists of four stages:
+
+1. **Bronze** – Ingest data from a REST API and store it as NDJSON in the raw layer.
+2. **Silver** – Validate, clean, and standardize the raw data into Parquet datasets in the refined layer.
+3. **Gold** – Load the curated data into a dimensional (star schema) data model to support analytical workloads.
+4. **Consumption** – Expose business metrics through a Business Intelligence dashboard.
+
 ```mermaid
 flowchart LR
     subgraph "Source (Kaggle)"
-        A[Movies Dataset]
+        KAGGLE[Movies Dataset]
     end
 
     subgraph Rest API
         direction TB
-        B[(DuckDB)]
-        C[Flask]
+        DUCKDB[(DuckDB)]
+        API[Flask]
     end
 
     subgraph Pipeline
@@ -50,53 +60,74 @@ flowchart LR
 
         subgraph Ingestion
             direction TB
-            D["Extract"]
-            E@{shape: datastore, label: "Raw/Bronze layer"}
+            EXTRACT["Extract"]
+            NDJSON@{ shape: docs, label: "NDJSON" }
+            BRONZE@{shape: datastore, label: "Raw/
+            Bronze layer"}
         end
 
-        subgraph Transformation
+        subgraph Standardization
             direction TB
-            F["Clean & Transform"]
-            G@{shape: datastore, label: "Refined/Silver layer"}
+            CLEAN["Clean & Transform"]
+            PARQUET@{ shape: docs, label: "Parquet" }
+            SILVER@{shape: datastore, label: "Refined/
+            Silver layer"}
         end
 
         subgraph Serving
             direction TB
-            H["Load"]
-            I[(Data
+            LOAD["Load"]
+            DW[(Data
             Warehouse)]
+            GOLD@{shape: datastore, label: "Data Marts/
+            Gold layer"}
         end
     end
 
     subgraph BI
-        J[Dashboard]
+        DASHBOARD[Dashboard]
     end
 
-    A -.-> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F --> G
-    G --> H
-    H --> I
-    I --> J
+    KAGGLE -.-> DUCKDB
+    DUCKDB --> API
+    API --> EXTRACT
+    EXTRACT --> NDJSON
+    NDJSON --> BRONZE
+    BRONZE --> CLEAN
+    CLEAN --> PARQUET
+    PARQUET --> SILVER
+    SILVER --> LOAD
+    LOAD --> DW
+    DW --> GOLD
+    GOLD -.-> DASHBOARD
 ```
+## Status
 
-### Progress
+🚧 Active development
+
+Current development is targeting **v0.3.0**.
+
+### Feature Progress
 
 - ✅ REST API
 - ✅ Batch ingestion
 - ✅ Raw data lake (Bronze)
-- 🚧 ELT pipeline
-- 🚧 Dimensional modeling (Star Schema)
+- ✅ ELT pipeline
+- ✅ Dimensional modeling (Star Schema)
+- 🚧 API validation (Pydantic)
 - ⏳ Gold layer
 - ⏳ BI dashboard
 - ⏳ Airflow orchestration
-- ⏳ Cloud Deployment
+- ⏳ Cloud deployment
 - ⏳ Infrastructure as Code
 - ⏳ Automated testing
-- ⏳ CI/CD...
+- ⏳ CI/CD
+
+### Release History
+
+**v0.1.0:** REST API ingestion, simple standardization, PostgreSQL loading and container orchestration.
+**v0.2.0:** ELT strategy and dimensional modeling (star schema).
+**v0.3.0** *(in progress)*: REST API validation using Pydantic.
 
 ## Getting Started
 
@@ -108,23 +139,27 @@ flowchart LR
 ### Run the project locally
 
 Create the `.env` file from the `.env.template` (no change required to run locally).
+
 ```bash
 cp .env.template .env
 ```
 
- Build the local images
+Build the local images
+
 ```bash
 docker compose build
 ```
 
 Run the API and database service in the background
+
 ```bash
 docker compose up prepare-data api postgres -d
 ```
 
 Run the ETL pipeline
+
 ```bash
-docker compose run --rm etl 
+docker compose run --rm etl
 ```
 
 ### Clean up Docker resources
