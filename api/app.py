@@ -61,7 +61,7 @@ def authenticate():
     return jsonify({'error': 'Unauthorized', 'message': 'Credenciais inválidas'}), 401
 
 
-@app.route('/art/v3/genres', methods=['GET'])
+@app.route('/api/v1/genres', methods=['GET'])
 def list_genres():
     payload, next_url = paginate_query(
         conn=get_db(),
@@ -84,7 +84,7 @@ def list_genres():
     return response, 200
 
 
-@app.route('/art/v3/movies', methods=['GET'])
+@app.route('/api/v1/movies', methods=['GET'])
 def get_movies():
     payload, next_url = paginate_query(
         conn=get_db(),
@@ -97,11 +97,11 @@ def get_movies():
         row_factory=lambda row: {
             'id': row[0],
             'title': row[1],
-            'language': row[2],
-            'genres': row[3],
-            'release_date': row[4],
-            'overview': row[5],
+            'original_language': row[2],
+            'release_date': row[5],
+            'overview': row[4],
             'revenue': row[6],
+            'genres': row[3],
         },
     )
 
@@ -112,7 +112,7 @@ def get_movies():
     return response, 200
 
 
-@app.route('/art/v3/movies/<int:idMovie>', methods=['GET'])
+@app.route('/api/v1/movies/<int:idMovie>', methods=['GET'])
 def get_movie(idMovie: int):
     db = get_db()
     result = db.execute(
@@ -130,7 +130,7 @@ def get_movie(idMovie: int):
         return jsonify({'error': 'Movie not found'}), 404
 
 
-@app.route('/art/v3/movies/<int:idMovie>/ratings', methods=['GET'])
+@app.route('/api/v1/movies/<int:idMovie>/ratings', methods=['GET'])
 def get_movie_ratings(idMovie: int):
     payload, next_url = paginate_query(
         conn=get_db(),
@@ -143,8 +143,9 @@ def get_movie_ratings(idMovie: int):
         count_query='SELECT COUNT(*) FROM ratings WHERE movie_id = ?',
         params=[idMovie],
         row_factory=lambda row: {
-            'movie_id': row[0],
-            'rating': row[1],
+            'user_id': row[0],
+            'movie_id': row[1],
+            'rating': row[2],
             'timestamp': row[3],
         },
     )
@@ -156,7 +157,7 @@ def get_movie_ratings(idMovie: int):
     return response, 200
 
 
-@app.route('/art/v3/ratings', methods=['GET'])
+@app.route('/api/v1/ratings', methods=['GET'])
 def list_ratings():
     payload, next_url = paginate_query(
         conn=get_db(),
@@ -167,9 +168,10 @@ def list_ratings():
         """,
         count_query='SELECT COUNT(*) FROM ratings',
         row_factory=lambda row: {
-            'movie_id': row[0],
-            'rating': row[1],
-            'timestamp': row[2],
+            'user_id': row[0],
+            'movie_id': row[1],
+            'rating': row[2],
+            'timestamp': row[3],
         },
     )
 

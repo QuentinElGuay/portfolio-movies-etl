@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from importlib.resources import files
 import logging
 
-from pandas import DataFrame
+from pandas import DataFrame, notna
 from sqlalchemy import MetaData, Table, create_engine, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
@@ -55,48 +55,65 @@ class Database:
             logger.error('SQLAlchemy: Error configuring the engine: %s', error)
             raise
 
-    def create_movie_table(self) -> None:
+    def create_table(self, table_name: str) -> None:
         """
-        Create the `movie` table or truncate it.
+        Create table from DDL file
         """
-        schema = files('movie_etl.sql.ddl').joinpath('movie.sql').read_text()
+        schema = files('movie_etl.sql.ddl').joinpath(f'{table_name}.sql').read_text()
 
         with self.engine.begin() as connection:
             connection.execute(text(schema))
 
-        logger.info('Table "movie" initialized with success')
+        logger.info('Table "%s" initialized', table_name)
 
-    def load_movies(self, df: DataFrame):
+    def upsert(self, table_name: str, df: DataFrame):
         """
-        Load the DataFrame into the `movie` table using an UPSERT operation to ensure idempotency.
+        Load the DataFrame into a table using an UPSERT operation to ensure idempotency.
         """
         metadata = MetaData()
-        movie = Table('movie', metadata, autoload_with=self.engine)
+        table = Table(table_name, metadata, autoload_with=self.engine)
 
+        df = df.where(notna(df), None)
         rows = df.to_dict(orient='records')
+        stmt = insert(table).values(rows)
 
-        stmt = insert(movie).values(rows)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=['id'],
-            set_={
-                column.name: getattr(stmt.excluded, column.name)
-                for column in movie.columns
-                if column.name != 'id'
-            },
-        )
+        # Handle conflicts
+        conflict_columns = [column.name for column in table.primary_key.columns]
+
+        update_columns = {
+            column.name: getattr(stmt.excluded, column.name)
+            for column in table.columns
+            if column.name not in conflict_columns
+        }
+
+        if update_columns:
+            stmt = stmt.on_conflict_do_update(
+                index_elements=conflict_columns,
+                set_={
+                    column.name: getattr(stmt.excluded, column.name)
+                    for column in table.columns
+                    if column.name not in conflict_columns
+                },
+            )
+        else:
+            stmt = stmt.on_conflict_do_nothing(
+                index_elements=conflict_columns,
+            )
 
         with self.engine.begin() as conn:
             try:
                 result = conn.execute(stmt)
                 logger.info(
-                    'Upserted %d row(s) into the "movie" table.', result.rowcount
+                    'Upserted %d row(s) into the "%s" table.',
+                    result.rowcount,
+                    table_name,
                 )
 
             except SQLAlchemyError as error:
-                # 1. Log only the core database error message (hides the raw rows)
+                # Log only the core database error message (hides the raw rows)
                 logger.error('Error loading data: %s', getattr(error, 'orig', error))
 
-                # 2. Raise a clean exception without the massive DataFrame dump
+                # Raise a clean exception without the massive DataFrame dump
                 raise RuntimeError(
                     'Database upsert failed due to a constraint or type error.'
                 ) from None

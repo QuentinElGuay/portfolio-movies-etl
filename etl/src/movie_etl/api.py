@@ -13,9 +13,9 @@ logger = logging.getLogger(f'movie_etl.{__name__}')
 MAX_PAGE_SIZE = 2000
 
 AUTH_ENDPOINT = '/auth'
-GENRES_ENDPOINT = '/art/v3/genres'
-MOVIES_ENDPOINT = '/art/v3/movies'
-MOVIE_RATINGS_ENDPOINT = '/art/v3/ratings'
+GENRES_ENDPOINT = '/api/v1/genres'
+MOVIES_ENDPOINT = '/api/v1/movies'
+MOVIE_RATINGS_ENDPOINT = '/api/v1/ratings'
 
 
 class ApiClient:

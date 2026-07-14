@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from enum import Enum
 import gzip
 import json
 import logging
@@ -9,7 +10,6 @@ from pathlib import Path
 import shutil
 import tempfile
 from typing import Any
-from urllib.parse import urljoin
 
 import pandas as pd
 
@@ -27,40 +27,74 @@ def compress_file(source_path: Path, output_path: Path):
 
 
 class ObjectStorage(ABC):
-    @abstractmethod
-    def upload(self, local_path: Path, remote_name: str) -> str:
-        pass
+    def __init__(self, root: str):
+        self.root = root
 
     @abstractmethod
-    def download(self, remote_name: str) -> Path:
-        pass
+    def upload(self, local_path: Path, remote_name: str) -> str:
+        """Upload a local file and return its URI"""
+        ...
+
+    @abstractmethod
+    def uri(self, path: str) -> str:
+        """Return the URI of an object."""
+        ...
+
+    @abstractmethod
+    def exists(self, path: str) -> bool:
+        """Check whether an object exists."""
+        ...
+
+    @abstractmethod
+    def list(self, prefix: str, suffix: str | None = None) -> list[str]:
+        """List of the files matching with the prefix and suffix arguments"""
 
 
 class LocalStorage(ObjectStorage):
-    def __init__(self):
-        self.folder = Path(os.environ['LOCAL_STORAGE'])
+    """Simulate an object storage on your local file system"""
+
+    def __init__(self, root: str):
+        self.root = root
+
+    def list(
+        self,
+        prefix: str,
+        suffix: str | None = None,
+    ) -> list[str]:
+        root = Path(self.root) / prefix
+
+        if suffix is None:
+            return sorted(str(p) for p in root.iterdir() if p.is_file())
+
+        return sorted(
+            str(p)
+            for p in root.iterdir()
+            if p.is_file() and p.name.lower().endswith(suffix.lower())
+        )
 
     def upload(self, local_path: Path, remote_name: str) -> str:
-        target_path = self.folder / remote_name
-        target_dir = target_path.parent
-        target_dir.mkdir(parents=True, exist_ok=True)
+        destination = Path(self.root) / remote_name
+        destination.parent.mkdir(parents=True, exist_ok=True)
 
-        shutil.copy(str(local_path), str(target_path))
+        shutil.copy2(local_path, destination)
 
-        logging.info('Uploading file to %s', target_path)
+        logger.debug('Uploaded %s to %s', local_path, destination)
 
-        return str(target_path)
+        return str(destination)
 
-    def download(self, remote_name: str) -> Path:
-        object_path = Path(self.folder) / remote_name
-        logging.info('Downloading file from %s', object_path)
+    def uri(self, path: str) -> str:
+        return str(Path(self.root) / path)
 
-        return object_path
+    def exists(self, path: str) -> bool:
+        return (Path(self.root) / path).exists()
 
 
+# TODO: implement this class
 class S3Storage(ObjectStorage):
-    def __init__(self, bucket: str):
-        self.bucket = bucket
+    """Not implemented yet"""
+
+    def __init__(self, root: str):
+        self.root = root
 
     def upload(self, local_path: Path, remote_name: str) -> str:
         raise NotImplementedError
@@ -78,13 +112,13 @@ class StorageFactory:
     }
 
     @classmethod
-    def create(cls, provider: str, **kwargs) -> ObjectStorage:
+    def create(cls, provider: str, root: str, **kwargs) -> ObjectStorage:
         try:
             storage_cls = cls._providers[provider]
         except KeyError:
             raise ValueError(f'Unsupported provider: {provider}')
 
-        return storage_cls(**kwargs)
+        return storage_cls(root, **kwargs)
 
 
 class NdjsonWriter:
@@ -172,55 +206,39 @@ class NdjsonReader:
     A utility class to read and combine multiple NDJSON files from a folder into a single pandas DataFrame.
     """
 
-    def __init__(
-        self,
-        folder_path: Path,
-        extensions: list[str] = [
-            '.ndjson',
-            '.jsonl',
-            '.ndjson.gz',
-            '.jsonl.gz',
-        ],
-    ):
+    def __init__(self, storage: ObjectStorage):
         """
         Initializes the reader with a target folder.
 
         Args:
-            folder_path (Path): Path to the directory containing the files.
-            extensions (list[str]): List of file extensions to search for.
-                           Defaults to ['.ndjson', '.jsonl', '.ndjson.gz',
-                           '.jsonl.gz'].
+            storage (ObjectStorage): The object storage to read from.
         """
-        self.folder_path = folder_path
-        self.extensions = extensions
+        self.storage = storage
 
-    def _find_files(self) -> list[str]:
-        """Internal method to scan the directory for matching files."""
-        all_files = []
-        base_path = os.path.join(self.folder_path, '*')
-
-        for ext in self.extensions:
-            all_files.extend(glob(f'{base_path}{ext}'))
-            all_files.extend(glob(f'{base_path}{ext.upper()}'))
-
-        return list(set(all_files))
-
-    def read_all(self, columns: list = [], **kwargs) -> pd.DataFrame:
+    def read_all(
+        self,
+        folder_path: str,
+        extension: str = 'ndjson.gz',
+        columns: list = [],
+        **kwargs,
+    ) -> pd.DataFrame:
         """
         Reads all found NDJSON files and concatenates them into one DataFrame.
 
         Args:
+            folder_path (Path): Path to the directory containing the files.
+            extensions (str): File extensions to search for among '.ndjson', '.jsonl', '.ndjson.gz' and '.jsonl.gz'
             columns (list[str]): Optional list of column names to keep (saves memory).
             kwargs (Any): Additional arguments passed directly to pd.read_json() (e.g., encoding='utf-8', dtype={'id': int}).
 
         Returns:
             A single combined pandas DataFrame.
         """
-        files = self._find_files()
+        files = self.storage.list(folder_path, extension)
 
         if not files:
             logging.warning(
-                'Warning: No matching NDJSON files found in %s', self.folder_path
+                'Warning: No matching NDJSON files found in %s', folder_path
             )
 
         df_list = []
