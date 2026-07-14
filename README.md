@@ -2,8 +2,7 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/QuentinElGuay/portfolio-movies-etl)](https://github.com/QuentinElGuay/portfolio-movies-etl/releases)
 
-> [!IMPORTANT]
-> 🚧 **This project is under active development.** New features are implemented
+> [!IMPORTANT] 🚧 **This project is under active development.** New features are implemented
 > incrementally while maintaining a working end-to-end pipeline. Some components are intentionally
 > incomplete or subject to refactoring as the architecture evolves. See the Roadmap section for
 > planned improvements.
@@ -11,6 +10,23 @@
 > Current development is targeting **v0.3.0**, focused on API validation with Pydantic. Future
 > milestones include a Gold layer, BI dashboard, Airflow orchestration, cloud deployment, CI/CD and
 > automated testing.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Goal](#goal)
+- [Dataset](#dataset)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Run the project locally](#run-the-project-locally)
+  - [Clean up Docker resources](#clean-up-docker-resources)
+- [Roadmap](#roadmap)
+- [Release History](#release-history)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Overview
 
@@ -112,7 +128,7 @@ flowchart LR
 
 ## Tech Stack
 
-| Category         | Technology             | Purpose                                    |
+| Category         | Technology             | Role                                       |
 | ---------------- | ---------------------- | ------------------------------------------ |
 | Source           | Kaggle                 | Movie dataset                              |
 | REST API         | Flask, DuckDB          | Simulate an external data source           |
@@ -129,8 +145,6 @@ flowchart LR
 ## Project Structure
 
 > [!IMPORTANT] Work in progress
-
-## Project Structure
 
 ```text
 .
