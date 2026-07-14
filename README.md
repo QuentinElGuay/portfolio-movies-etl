@@ -68,7 +68,7 @@ flowchart LR
 
         subgraph Standardization
             direction TB
-            CLEAN["Clean & Transform"]
+            CLEAN["Clean & Standardize"]
             PARQUET@{ shape: docs, label: "Parquet" }
             SILVER@{shape: datastore, label: "Refined/
             Silver layer"}
