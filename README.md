@@ -2,8 +2,8 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/QuentinElGuay/portfolio-movies-etl)](https://github.com/QuentinElGuay/portfolio-movies-etl/releases)
 
-> [!IMPORTANT] 🚧
-> **This project is under active development.** New features are implemented
+> [!IMPORTANT]
+> 🚧 **This project is under active development.** New features are implemented
 > incrementally while maintaining a working end-to-end pipeline. Some components are intentionally
 > incomplete or subject to refactoring as the architecture evolves. See the Roadmap section for
 > planned improvements.
