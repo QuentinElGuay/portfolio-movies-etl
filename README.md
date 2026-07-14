@@ -125,9 +125,9 @@ Current development is targeting **v0.3.0**.
 
 ### Release History
 
-**v0.1.0:** REST API ingestion, simple standardization, PostgreSQL loading and container orchestration.
-**v0.2.0:** ELT strategy and dimensional modeling (star schema).
-**v0.3.0** *(in progress)*: REST API validation using Pydantic.
+- **v0.1.0:** REST API ingestion, simple standardization, PostgreSQL loading and container orchestration.
+- **v0.2.0:** ELT strategy and dimensional modeling (star schema).
+- **v0.3.0** *(in progress)*: REST API validation using Pydantic.
 
 ## Getting Started
 
