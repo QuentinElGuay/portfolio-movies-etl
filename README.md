@@ -104,7 +104,6 @@ flowchart LR
     DW --> GOLD
     GOLD -.-> DASHBOARD
 ```
-## Status
 
 ### Release History
 
