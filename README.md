@@ -51,7 +51,7 @@ flowchart LR
         subgraph Ingestion
             direction TB
             D["Extract"]
-            E@{shape: datastore, label: "bronze/Bronze layer"}
+            E@{shape: datastore, label: "Raw/Bronze layer"}
         end
 
         subgraph Transformation
