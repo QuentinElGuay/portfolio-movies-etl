@@ -10,7 +10,7 @@
 > incomplete or subject to refactoring as the architecture evolves. See the [Roadmap](#roadmap) section for
 > planned improvements.
 >
-> Current development is targeting **v0.3.0**, focused on API validation with Pydantic. Future
+> Current development is targeting **[v0.3.0](#release-history)**, focused on API validation with Pydantic. Future
 > milestones include a Gold layer, BI dashboard, Airflow orchestration, cloud deployment, CI/CD and
 > automated testing.
 
