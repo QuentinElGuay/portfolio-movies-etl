@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 import logging
 import os
 from pathlib import Path
@@ -9,16 +9,24 @@ import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 
-from movie_etl.api import (
+from movie_etl.ingestion.api import (
     AUTH_ENDPOINT,
     GENRES_ENDPOINT,
-    MOVIE_RATINGS_ENDPOINT,
+    RATINGS_ENDPOINT,
     MOVIES_ENDPOINT,
     ApiClient,
+    Endpoint,
 )
+from movie_etl.ingestion.api_models import Genre, Movie, MovieGenre
+from movie_etl.ingestion.validation import validate_records
 from movie_etl.config import Settings
-from movie_etl.database import Database
-from movie_etl.storage import NdjsonReader, NdjsonWriter, ObjectStorage, StorageFactory
+from etl.src.movie_etl.load.database import Database
+from etl.src.movie_etl.files.storage import (
+    NdjsonReader,
+    NdjsonWriter,
+    ObjectStorage,
+    StorageFactory,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,74 +40,125 @@ class ExecutionContext:
     storage: ObjectStorage
 
 
-def get_genres(context: ExecutionContext, api_client: ApiClient) -> str:
+def download_endpoint(
+    context: ExecutionContext, api_client: ApiClient, endpoint: Endpoint
+) -> str:
     """
-    Returns a list of strings containing the path to the downloaded ndjson files of genres returned by the API endpoints.
+    Returns a string containing the prefix to the NdJson files created by the download of the
+    endpoint.
     """
-    prefix = f'bronze/genres/date={context.run_start_time.date().isoformat()}/'
+    start_time = context.run_start_time.date().isoformat()
+    success_prefix = f'movie_api/bronze/{endpoint.name}/date={start_time}/'
+    error_prefix = f'movie_api/quarantine/{endpoint.name}/date={start_time}/'
 
-    with NdjsonWriter(context.storage, prefix=prefix) as writer:
-        nb_records = 0
-        for genre in api_client.get_endpoint(GENRES_ENDPOINT):
-            writer.write(genre)
-            nb_records += 1
-        logger.info('Downloaded %d genres from endpoint.', nb_records)
+    successes = 0
+    errors = 0
 
-    return prefix
+    with (
+        NdjsonWriter(context.storage, prefix=success_prefix) as success_writer,
+        NdjsonWriter(context.storage, prefix=error_prefix) as error_writer,
+    ):
+        for genre in api_client.get_endpoint(endpoint.path):
+            validation_result = validate_records(genre, Genre)
+            if validation_result.model:
+                success_writer.write(validation_result.model)
+                successes += 1
+            else:
+                error_writer.write(
+                    {
+                        'endpoint': endpoint.path,
+                        'retrieved_at': datetime.now(UTC).isoformat(),
+                        'record': validation_result.record,
+                        'validation_errors': validation_result.errors,
+                    }
+                )
+                errors += 1
+
+        logger.info('Downloaded %d %s(s) from endpoint.', successes, endpoint.name)
+        logger.info('%d downloaded %s(s) went to quarantine.', errors, endpoint.name)
+
+    return success_prefix
 
 
-def get_movies(context: ExecutionContext, api_client: ApiClient) -> tuple[str, str]:
+# TODO: check if it would be possible to use the generic download_endpoint function using
+# recursivity
+def download_movies(
+    context: ExecutionContext, api_client: ApiClient
+) -> tuple[str, str]:
     """
     Returns a list of strings containing the path to the downloaded ndjson files of relations movies returned by the API endpoints.
     """
-    prefix_movies = f'bronze/movies/date={context.run_start_time.date().isoformat()}/'
-    prefix_genres_movies = (
-        f'bronze/genres_movies/date={context.run_start_time.date().isoformat()}/'
+    start_time = context.run_start_time.date().isoformat()
+    prefix_movies_success = f'movie_api/bronze/movies/date={start_time}/'
+    prefix_movies_error = f'movie_api/quarantine/movies/date={start_time}/'
+    prefix_movies_genres_success = f'movie_api/bronze/movies_genres/date={start_time}/'
+    prefix_movies_genres_error = (
+        f'movie_api/quarantine/movies_genres/date={start_time}/'
     )
+
+    movies_successes = 0
+    movies_errors = 0
+    movies_genres_successes = 0
+    movies_genres_errors = 0
 
     with (
-        NdjsonWriter(context.storage, prefix=prefix_movies) as movies_writer,
         NdjsonWriter(
-            context.storage, prefix=prefix_genres_movies
-        ) as genres_movies_writer,
+            context.storage, prefix=prefix_movies_success
+        ) as movies_success_writer,
+        NdjsonWriter(
+            context.storage, prefix=prefix_movies_error
+        ) as movies_error_writer,
+        NdjsonWriter(
+            context.storage, prefix=prefix_movies_genres_success
+        ) as movies_genres_success_writer,
+        NdjsonWriter(
+            context.storage, prefix=prefix_movies_genres_error
+        ) as movies_genres_error_writer,
     ):
-        nb_records_movies = 0
-        nb_records_genres_movies = 0
+        for movie in api_client.get_endpoint(MOVIES_ENDPOINT.path):
+            validation_result = validate_records(movie, Movie)
+            if validation_result.model:
+                movies_success_writer.write(validation_result.model)
+                movies_successes += 1
 
-        for movie in api_client.get_endpoint(MOVIES_ENDPOINT):
-            genres = movie.pop('genres')
+                # TODO: check how to create the MovieGenre models in the movie model automatically
+                genres = movie.pop('genres')
+                for genre in genres:
+                    validation_result = validate_records(
+                        {'movie_id': movie['id'], 'genre_id': genre['id']}, MovieGenre
+                    )
+                    if validation_result.model:
+                        movies_genres_success_writer.write(validation_result.model)
+                        movies_genres_successes += 1
+                    else:
+                        movies_genres_error_writer.write(
+                            {
+                                'endpoint': MOVIES_ENDPOINT.path,
+                                'retrieved_at': datetime.now(UTC).isoformat(),
+                                'record': validation_result.record,
+                                'validation_errors': validation_result.errors,
+                            }
+                        )
+                        movies_genres_errors += 1
 
-            movies_writer.write(movie)
-            nb_records_movies += 1
-
-            for genre in genres:
-                genres_movies_writer.write(
-                    {'movie_id': movie['id'], 'genre_id': genre['id']}
+            else:
+                movies_error_writer.write(
+                    {
+                        'endpoint': MOVIES_ENDPOINT,
+                        'retrieved_at': datetime.now(UTC).isoformat(),
+                        'record': validation_result.record,
+                        'validation_errors': validation_result.errors,
+                    }
                 )
-                nb_records_genres_movies += 1
-        logger.info('Downloaded %d movies from endpoint.', nb_records_movies)
+                movies_errors += 1
+
+        logger.info('Downloaded %d movie(s) from endpoint.', movies_successes)
+        logger.info('%d downloaded movie(s) went to quarantine.', movies_errors)
 
     return (
-        prefix_movies,
-        prefix_genres_movies,
+        prefix_movies_success,
+        prefix_movies_genres_success,
     )
-
-
-def get_ratings(context: ExecutionContext, api_client: ApiClient) -> str:
-    """
-    Returns a list of strings containing the path to the downloaded ndjson files of relations movie/ratings returned by the API endpoints.
-    """
-    prefix = f'bronze/ratings/date={context.run_start_time.date().isoformat()}/'
-
-    with NdjsonWriter(context.storage, prefix=prefix) as writer:
-        nb_records = 0
-        for movie_ratings in api_client.get_endpoint(MOVIE_RATINGS_ENDPOINT):
-            writer.write(movie_ratings)
-            nb_records += 1
-
-    logger.info('Downloaded %d ratings from endpoint.', nb_records)
-
-    return prefix
 
 
 def extract(context: ExecutionContext) -> dict[str, str]:
@@ -123,7 +182,7 @@ def extract(context: ExecutionContext) -> dict[str, str]:
         api_client = ApiClient(session, context.settings)
 
         token = api_client.get_auth(
-            AUTH_ENDPOINT,
+            AUTH_ENDPOINT.path,
             context.settings.api_username,
             context.settings.api_password,
         )
@@ -132,12 +191,12 @@ def extract(context: ExecutionContext) -> dict[str, str]:
 
         session.headers.update(headers)
 
-        movies_dataset, genres_movies_dataset = get_movies(context, api_client)
+        movies_dataset, genres_movies_dataset = download_movies(context, api_client)
         dataset_paths = {
-            'genres': get_genres(context, api_client),
+            'genres': download_endpoint(context, api_client, GENRES_ENDPOINT),
             'genres_movies': genres_movies_dataset,
             'movies': movies_dataset,
-            'ratings': get_ratings(context, api_client),
+            'ratings': download_endpoint(context, api_client, MOVIES_ENDPOINT),
         }
 
     logger.debug(dataset_paths)

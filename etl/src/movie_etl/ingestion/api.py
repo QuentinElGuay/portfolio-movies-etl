@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from dataclasses import dataclass
 import logging
 from typing import Any
 from urllib.parse import urljoin
@@ -12,10 +13,17 @@ logger = logging.getLogger(f'movie_etl.{__name__}')
 
 MAX_PAGE_SIZE = 2000
 
-AUTH_ENDPOINT = '/auth'
-GENRES_ENDPOINT = '/api/v1/genres'
-MOVIES_ENDPOINT = '/api/v1/movies'
-MOVIE_RATINGS_ENDPOINT = '/api/v1/ratings'
+
+@dataclass(frozen=True)
+class Endpoint:
+    name: str
+    path: str
+
+
+AUTH_ENDPOINT = Endpoint('auth', '/auth')
+GENRES_ENDPOINT = Endpoint('genres', '/api/v1/genres')
+MOVIES_ENDPOINT = Endpoint('movies', '/api/v1/movies')
+RATINGS_ENDPOINT = Endpoint('ratings', '/api/v1/ratings')
 
 
 class ApiClient:
