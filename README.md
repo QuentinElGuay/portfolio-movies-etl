@@ -7,7 +7,7 @@
 >
 > New features are implemented
 > incrementally while maintaining a working end-to-end pipeline. Some components are intentionally
-> incomplete or subject to refactoring as the architecture evolves. See the Roadmap section for
+> incomplete or subject to refactoring as the architecture evolves. See the [Roadmap](#roadmap) section for
 > planned improvements.
 >
 > Current development is targeting **v0.3.0**, focused on API validation with Pydantic. Future
