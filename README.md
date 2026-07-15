@@ -3,7 +3,9 @@
 [![GitHub Release](https://img.shields.io/github/v/release/QuentinElGuay/portfolio-movies-etl)](https://github.com/QuentinElGuay/portfolio-movies-etl/releases)
 
 > [!IMPORTANT]
-> 🚧 **This project is under active development.** New features are implemented
+> 🚧 This project is under **<ins>active development</ins>.**
+>
+> New features are implemented
 > incrementally while maintaining a working end-to-end pipeline. Some components are intentionally
 > incomplete or subject to refactoring as the architecture evolves. See the Roadmap section for
 > planned improvements.
@@ -31,21 +33,23 @@
 
 ## Overview
 
-This project demonstrates a production-inspired batch data engineering pipeline. It was inspired by
-a technical take-home assignment from a hiring process and later evolved into the final project for
-the [Data Engineering Zoomcamp](https://github.com/DataTalksClub/data-engineering-zoomcamp) by
+This project demonstrates a production-inspired end-to-end ELT pipeline that tackles a common data 
+engineering challenge: transforming operational API data into trusted, analytics-ready datasets.
+The pipeline is designed around a realistic data engineering use case and showcases modern engineering
+practices, including clean architecture, reproducibility, orchestration, automated testing, CI/CD,
+infrastructure as code, data quality, observability, and maintainability. As a portfolio project,
+the emphasis is on software and data engineering practices rather than processing data at massive scale.
+
+It was inspired by a technical take-home assignment from a hiring process and later evolved into the final
+project for the [Data Engineering Zoomcamp](https://github.com/DataTalksClub/data-engineering-zoomcamp) by
 [DataTalks.Club](https://datatalks.club).
 
-As a portfolio project, this repository focuses on demonstrating production-ready software and data
-engineering practices - including clean architecture, reproducibility, orchestration, automated
-testing, CI/CD, infrastructure as code, data quality, observability and maintainability - rather
-than processing very large datasets.
+## Problem statement
 
-## Goal
-
-Movie metadata and user ratings contain valuable information for understanding audience preferences
-and trends. This project builds an end-to-end ELT pipeline that ingests, refines, and models this
-data into a dimensional warehouse to support interactive dashboards and business intelligence.
+Movie metadata and user ratings are often exposed through REST APIs that are optimized for operational
+access rather than analytical workloads. The pipeline ingests this data, validates it, organizes it into
+a lakehouse architecture, and transforms it into analytics-ready datasets for reporting and business 
+intelligence.
 
 ## Dataset
 
@@ -131,22 +135,15 @@ flowchart LR
 
 | Category         | Technology             | Role                                       |
 | ---------------- | ---------------------- | ------------------------------------------ |
-| Source           | Kaggle                 | Movie dataset                              |
-| REST API         | Flask, DuckDB          | Simulate an external data source           |
+| Data Source      | Kaggle                 | Original movie dataset                     |
+| REST API         | Flask, DuckDB          | Simulate an external 3rd party API         |
 | Ingestion        | Python, Requests       | Extract data from the REST API             |
 | Data Lake        | NDJSON, Parquet        | Bronze and Silver storage layers           |
-| Transformation   | Pandas                 | Clean, standardize, and prepare data       |
-| Data Warehouse   | PostgreSQL, SQLAlchemy | Store the dimensional model                |
+| Cleaning         | Python, Pandas         | Clean, standardize, and prepare data       |
+| Data Warehouse   | PostgreSQL, SQLAlchemy | Load and store the dimensional model       |
 | Containerization | Docker Compose         | Reproducible local development environment |
-| Future           | Pydantic               | Data validation                            |
-| Future           | Airflow                | Workflow orchestration                     |
-| Future           | GitHub Actions         | CI/CD                                      |
-| Future           | Metabase               | Business Intelligence                      |
 
 ## Project Structure
-
-> [!IMPORTANT]
->  Work in progress
 
 ```text
 .
