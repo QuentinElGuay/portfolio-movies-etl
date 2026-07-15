@@ -1,4 +1,4 @@
-# End to End Movies ETL Data Engineering Pipeline
+# End-to-End Data Engineering Pipeline for Movie Data
 
 [![GitHub Release](https://img.shields.io/github/v/release/QuentinElGuay/portfolio-movies-etl)](https://github.com/QuentinElGuay/portfolio-movies-etl/releases)
 
