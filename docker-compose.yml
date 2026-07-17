@@ -55,10 +55,10 @@ services:
     ports:
       - "5000:5000"
 
-  etl:
+  pipeline:
     build:
-      context: ./etl
-    container_name: movie-etl
+      context: ./pipeline
+    container_name: movie-pipeline
 
     depends_on:
       postgres:

@@ -7,7 +7,7 @@ from sqlalchemy import MetaData, Table, create_engine, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 
-from movie_etl.config import Settings
+from pipeline.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ class Database:
         """
         Create table from DDL file
         """
-        schema = files('movie_etl.sql.ddl').joinpath(f'{table_name}.sql').read_text()
+        schema = files('pipeline.sql.ddl').joinpath(f'{table_name}.sql').read_text()
 
         with self.engine.begin() as connection:
             connection.execute(text(schema))

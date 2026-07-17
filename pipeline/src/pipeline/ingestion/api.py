@@ -3,12 +3,14 @@ from dataclasses import dataclass
 import logging
 from typing import Any
 from urllib.parse import urljoin
+from pipeline.ingestion.models import Genre, Movie, Rating
+from pydantic import BaseModel
 import requests
 
-from movie_etl.config import Settings
+from pipeline.config import Settings
 
 
-logger = logging.getLogger(f'movie_etl.{__name__}')
+logger = logging.getLogger(f'pipeline.{__name__}')
 
 
 MAX_PAGE_SIZE = 2000
@@ -18,12 +20,13 @@ MAX_PAGE_SIZE = 2000
 class Endpoint:
     name: str
     path: str
+    model: BaseModel | None
 
 
-AUTH_ENDPOINT = Endpoint('auth', '/auth')
-GENRES_ENDPOINT = Endpoint('genres', '/api/v1/genres')
-MOVIES_ENDPOINT = Endpoint('movies', '/api/v1/movies')
-RATINGS_ENDPOINT = Endpoint('ratings', '/api/v1/ratings')
+AUTH_ENDPOINT = Endpoint('auth', '/auth', None)
+GENRES_ENDPOINT = Endpoint('genres', '/api/v1/genres', Genre)
+MOVIES_ENDPOINT = Endpoint('movies', '/api/v1/movies', Movie)
+RATINGS_ENDPOINT = Endpoint('ratings', '/api/v1/ratings', Rating)
 
 
 class ApiClient:

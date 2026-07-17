@@ -125,7 +125,7 @@ flowchart LR
     NDJSON --> CLEAN
     CLEAN --> SILVER
     SILVER --> PARQUET
-    SILVER --> LOAD
+    PARQUET --> LOAD
     LOAD --> GOLD
     GOLD --> DW
     DW -.-> DASHBOARD
@@ -148,7 +148,7 @@ flowchart LR
 ```text
 .
 ├── api/                Flask REST API exposing the movie dataset
-├── etl/                ELT pipeline implementation
+├── pipeline/                ELT pipeline implementation
 ├── docs/               Project documentation (future)
 ├── .github/            GitHub Actions workflows (future)
 ├── docker-compose.yml  Local development environment

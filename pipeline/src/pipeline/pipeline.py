@@ -9,7 +9,7 @@ import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 
-from movie_etl.ingestion.api import (
+from pipeline.ingestion.api import (
     AUTH_ENDPOINT,
     GENRES_ENDPOINT,
     RATINGS_ENDPOINT,
@@ -17,16 +17,13 @@ from movie_etl.ingestion.api import (
     ApiClient,
     Endpoint,
 )
-from movie_etl.ingestion.api_models import Genre, Movie, MovieGenre
-from movie_etl.ingestion.validation import validate_records
-from movie_etl.config import Settings
-from etl.src.movie_etl.load.database import Database
-from etl.src.movie_etl.files.storage import (
-    NdjsonReader,
-    NdjsonWriter,
-    ObjectStorage,
-    StorageFactory,
-)
+from pipeline.ingestion.models import Genre, Movie, MovieGenre
+from pipeline.ingestion.validation import validate_records
+from pipeline.config import Settings
+from pipeline.load.database import Database
+from pipeline.files.reader import NdjsonReader
+from pipeline.files.storage import ObjectStorage, StorageFactory
+from pipeline.files.writer import NdjsonWriter
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +55,10 @@ def download_endpoint(
         NdjsonWriter(context.storage, prefix=success_prefix) as success_writer,
         NdjsonWriter(context.storage, prefix=error_prefix) as error_writer,
     ):
-        for genre in api_client.get_endpoint(endpoint.path):
-            validation_result = validate_records(genre, Genre)
+        for record in api_client.get_endpoint(endpoint.path):
+            validation_result = validate_records(record, endpoint.model)
             if validation_result.model:
-                success_writer.write(validation_result.model)
+                success_writer.write(validation_result.model.model_dump(mode='json'))
                 successes += 1
             else:
                 error_writer.write(
@@ -74,91 +71,10 @@ def download_endpoint(
                 )
                 errors += 1
 
-        logger.info('Downloaded %d %s(s) from endpoint.', successes, endpoint.name)
-        logger.info('%d downloaded %s(s) went to quarantine.', errors, endpoint.name)
+        logger.info('Downloaded %d %s from endpoint.', successes, endpoint.name)
+        logger.info('%d downloaded %s went to quarantine.', errors, endpoint.name)
 
     return success_prefix
-
-
-# TODO: check if it would be possible to use the generic download_endpoint function using
-# recursivity
-def download_movies(
-    context: ExecutionContext, api_client: ApiClient
-) -> tuple[str, str]:
-    """
-    Returns a list of strings containing the path to the downloaded ndjson files of relations movies returned by the API endpoints.
-    """
-    start_time = context.run_start_time.date().isoformat()
-    prefix_movies_success = f'movie_api/bronze/movies/date={start_time}/'
-    prefix_movies_error = f'movie_api/quarantine/movies/date={start_time}/'
-    prefix_movies_genres_success = f'movie_api/bronze/movies_genres/date={start_time}/'
-    prefix_movies_genres_error = (
-        f'movie_api/quarantine/movies_genres/date={start_time}/'
-    )
-
-    movies_successes = 0
-    movies_errors = 0
-    movies_genres_successes = 0
-    movies_genres_errors = 0
-
-    with (
-        NdjsonWriter(
-            context.storage, prefix=prefix_movies_success
-        ) as movies_success_writer,
-        NdjsonWriter(
-            context.storage, prefix=prefix_movies_error
-        ) as movies_error_writer,
-        NdjsonWriter(
-            context.storage, prefix=prefix_movies_genres_success
-        ) as movies_genres_success_writer,
-        NdjsonWriter(
-            context.storage, prefix=prefix_movies_genres_error
-        ) as movies_genres_error_writer,
-    ):
-        for movie in api_client.get_endpoint(MOVIES_ENDPOINT.path):
-            validation_result = validate_records(movie, Movie)
-            if validation_result.model:
-                movies_success_writer.write(validation_result.model)
-                movies_successes += 1
-
-                # TODO: check how to create the MovieGenre models in the movie model automatically
-                genres = movie.pop('genres')
-                for genre in genres:
-                    validation_result = validate_records(
-                        {'movie_id': movie['id'], 'genre_id': genre['id']}, MovieGenre
-                    )
-                    if validation_result.model:
-                        movies_genres_success_writer.write(validation_result.model)
-                        movies_genres_successes += 1
-                    else:
-                        movies_genres_error_writer.write(
-                            {
-                                'endpoint': MOVIES_ENDPOINT.path,
-                                'retrieved_at': datetime.now(UTC).isoformat(),
-                                'record': validation_result.record,
-                                'validation_errors': validation_result.errors,
-                            }
-                        )
-                        movies_genres_errors += 1
-
-            else:
-                movies_error_writer.write(
-                    {
-                        'endpoint': MOVIES_ENDPOINT,
-                        'retrieved_at': datetime.now(UTC).isoformat(),
-                        'record': validation_result.record,
-                        'validation_errors': validation_result.errors,
-                    }
-                )
-                movies_errors += 1
-
-        logger.info('Downloaded %d movie(s) from endpoint.', movies_successes)
-        logger.info('%d downloaded movie(s) went to quarantine.', movies_errors)
-
-    return (
-        prefix_movies_success,
-        prefix_movies_genres_success,
-    )
 
 
 def extract(context: ExecutionContext) -> dict[str, str]:
@@ -191,12 +107,10 @@ def extract(context: ExecutionContext) -> dict[str, str]:
 
         session.headers.update(headers)
 
-        movies_dataset, genres_movies_dataset = download_movies(context, api_client)
         dataset_paths = {
             'genres': download_endpoint(context, api_client, GENRES_ENDPOINT),
-            'genres_movies': genres_movies_dataset,
-            'movies': movies_dataset,
-            'ratings': download_endpoint(context, api_client, MOVIES_ENDPOINT),
+            'movies': download_endpoint(context, api_client, MOVIES_ENDPOINT),
+            'ratings': download_endpoint(context, api_client, RATINGS_ENDPOINT),
         }
 
     logger.debug(dataset_paths)
