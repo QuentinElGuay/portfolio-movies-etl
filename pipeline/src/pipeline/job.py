@@ -4,6 +4,7 @@ import logging
 import os
 from pathlib import Path
 from urllib3.util.retry import Retry
+from uuid import uuid7
 
 import pandas as pd
 import requests
@@ -37,6 +38,7 @@ class ExecutionContext:
     run_start_time: datetime
     settings: Settings
     storage: ObjectStorage
+    run_id: str
 
 
 def download_endpoint(
@@ -46,8 +48,18 @@ def download_endpoint(
     Returns a string containing the prefix to the NdJson files created by the download of the
     endpoint.
     """
-    bronze_dataset = Dataset(endpoint.name, Layer.BRONZE)
-    quarantine = Dataset(endpoint.name, Layer.QUARANTINE)
+    bronze_dataset = Dataset(
+        endpoint.name,
+        Layer.BRONZE,
+        context.run_start_time.date(),
+        context.run_id,
+    )
+    quarantine = Dataset(
+        endpoint.name,
+        Layer.QUARANTINE,
+        context.run_start_time.date(),
+        context.run_id,
+    )
 
     successes = 0
     errors = 0
@@ -267,6 +279,7 @@ def run():
     context = ExecutionContext(
         datalake=DataLake(DATALAKE_CONFIG, STORAGE),
         run_start_time=datetime.now(timezone.utc),
+        run_id=str(uuid7()),
         settings=Settings.from_env(),
         storage=STORAGE,  # TODO: storage is probably not required since already in datalake
     )
