@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 import logging
 import os
 from pathlib import Path
@@ -9,16 +9,22 @@ import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 
-from movie_etl.api import (
+from pipeline.datalake import DataLakeConfig, Dataset, FileFormat, LayerConfig
+from pipeline.ingestion.api import (
     AUTH_ENDPOINT,
     GENRES_ENDPOINT,
-    MOVIE_RATINGS_ENDPOINT,
+    RATINGS_ENDPOINT,
     MOVIES_ENDPOINT,
     ApiClient,
+    Endpoint,
 )
-from movie_etl.config import Settings
-from movie_etl.database import Database
-from movie_etl.storage import NdjsonReader, NdjsonWriter, ObjectStorage, StorageFactory
+from pipeline.ingestion.validation import validate_records
+from pipeline.config import Settings
+from pipeline.datalake import DataLake, Layer
+from pipeline.load.database import Database
+from pipeline.serialization.reader import NdjsonReader
+from pipeline.serialization.writer import NdjsonWriter, WritersManager
+from pipeline.storage.object_storage import ObjectStorage, StorageFactory
 
 logger = logging.getLogger(__name__)
 
@@ -27,82 +33,59 @@ logger = logging.getLogger(__name__)
 class ExecutionContext:
     """Object containing shared execution information"""
 
+    datalake: DataLake
     run_start_time: datetime
     settings: Settings
     storage: ObjectStorage
 
 
-def get_genres(context: ExecutionContext, api_client: ApiClient) -> str:
+def download_endpoint(
+    context: ExecutionContext, api_client: ApiClient, endpoint: Endpoint
+) -> Dataset:
     """
-    Returns a list of strings containing the path to the downloaded ndjson files of genres returned by the API endpoints.
+    Returns a string containing the prefix to the NdJson files created by the download of the
+    endpoint.
     """
-    prefix = f'bronze/genres/date={context.run_start_time.date().isoformat()}/'
+    bronze_dataset = Dataset(endpoint.name, Layer.BRONZE)
+    quarantine = Dataset(endpoint.name, Layer.QUARANTINE)
 
-    with NdjsonWriter(context.storage, prefix=prefix) as writer:
-        nb_records = 0
-        for genre in api_client.get_endpoint(GENRES_ENDPOINT):
-            writer.write(genre)
-            nb_records += 1
-        logger.info('Downloaded %d genres from endpoint.', nb_records)
+    successes = 0
+    errors = 0
 
-    return prefix
-
-
-def get_movies(context: ExecutionContext, api_client: ApiClient) -> tuple[str, str]:
-    """
-    Returns a list of strings containing the path to the downloaded ndjson files of relations movies returned by the API endpoints.
-    """
-    prefix_movies = f'bronze/movies/date={context.run_start_time.date().isoformat()}/'
-    prefix_genres_movies = (
-        f'bronze/genres_movies/date={context.run_start_time.date().isoformat()}/'
-    )
-
-    with (
-        NdjsonWriter(context.storage, prefix=prefix_movies) as movies_writer,
-        NdjsonWriter(
-            context.storage, prefix=prefix_genres_movies
-        ) as genres_movies_writer,
-    ):
-        nb_records_movies = 0
-        nb_records_genres_movies = 0
-
-        for movie in api_client.get_endpoint(MOVIES_ENDPOINT):
-            genres = movie.pop('genres')
-
-            movies_writer.write(movie)
-            nb_records_movies += 1
-
-            for genre in genres:
-                genres_movies_writer.write(
-                    {'movie_id': movie['id'], 'genre_id': genre['id']}
+    with WritersManager(
+        datalake=context.datalake, writer_factory=NdjsonWriter
+    ) as writers:
+        for record in api_client.get_endpoint(endpoint.path):
+            validation_result = validate_records(record, endpoint.model)
+            if validation_result.model:
+                writers.write(
+                    dataset=bronze_dataset,
+                    record=validation_result.model.model_dump(mode='json'),
                 )
-                nb_records_genres_movies += 1
-        logger.info('Downloaded %d movies from endpoint.', nb_records_movies)
+                successes += 1
+            else:
+                writers.write(
+                    quarantine,
+                    {
+                        'endpoint': endpoint.path,
+                        'retrieved_at': datetime.now(UTC).isoformat(),
+                        'record': validation_result.record,
+                        'validation_errors': validation_result.errors,
+                    },
+                )
+                errors += 1
 
-    return (
-        prefix_movies,
-        prefix_genres_movies,
-    )
+        logger.info('Downloaded %d %s from endpoint.', successes, endpoint.name)
 
+        if errors > 0:
+            logger.warning(
+                '%d downloaded %s went to quarantine.', errors, endpoint.name
+            )
 
-def get_ratings(context: ExecutionContext, api_client: ApiClient) -> str:
-    """
-    Returns a list of strings containing the path to the downloaded ndjson files of relations movie/ratings returned by the API endpoints.
-    """
-    prefix = f'bronze/ratings/date={context.run_start_time.date().isoformat()}/'
-
-    with NdjsonWriter(context.storage, prefix=prefix) as writer:
-        nb_records = 0
-        for movie_ratings in api_client.get_endpoint(MOVIE_RATINGS_ENDPOINT):
-            writer.write(movie_ratings)
-            nb_records += 1
-
-    logger.info('Downloaded %d ratings from endpoint.', nb_records)
-
-    return prefix
+    return bronze_dataset.to_dict()
 
 
-def extract(context: ExecutionContext) -> dict[str, str]:
+def extract(context: ExecutionContext) -> dict[str, Dataset]:
     """
     Execute the Extract step of the ETL process
     """
@@ -123,7 +106,7 @@ def extract(context: ExecutionContext) -> dict[str, str]:
         api_client = ApiClient(session, context.settings)
 
         token = api_client.get_auth(
-            AUTH_ENDPOINT,
+            AUTH_ENDPOINT.path,
             context.settings.api_username,
             context.settings.api_password,
         )
@@ -132,24 +115,20 @@ def extract(context: ExecutionContext) -> dict[str, str]:
 
         session.headers.update(headers)
 
-        movies_dataset, genres_movies_dataset = get_movies(context, api_client)
-        dataset_paths = {
-            'genres': get_genres(context, api_client),
-            'genres_movies': genres_movies_dataset,
-            'movies': movies_dataset,
-            'ratings': get_ratings(context, api_client),
+        datasets = {
+            'genres': download_endpoint(context, api_client, GENRES_ENDPOINT),
+            'movies': download_endpoint(context, api_client, MOVIES_ENDPOINT),
+            'ratings': download_endpoint(context, api_client, RATINGS_ENDPOINT),
         }
-
-    logger.debug(dataset_paths)
 
     logger.info('EXTRACT STEP EXECUTED WITH SUCCESS')
 
-    return dataset_paths
+    return datasets
 
 
 def transform(
     context: ExecutionContext,
-    datasets: dict[str, str],
+    datasets: dict[str, dict[str, str]],
 ) -> list[dict[str, str]]:
     """
     Execute the Transform step of the ETL process
@@ -161,13 +140,13 @@ def transform(
     # TODO: create specific functions for each dataset
     df_dim_genre = (
         NdjsonReader(context.storage)
-        .read_all(datasets['genres'])
+        .read_all(context.datalake, Dataset(**datasets['genres']))
         .reindex(columns=['id', 'name'])
     )
 
-    df_dim_movie = (
+    df_movies = (
         NdjsonReader(context.storage)
-        .read_all(datasets['movies'])
+        .read_all(context.datalake, Dataset(**datasets['movies']))
         .assign(
             release_date=lambda df: (
                 pd.to_datetime(
@@ -177,28 +156,31 @@ def transform(
             )
         )
         .drop_duplicates(subset=['id'])
-        .reindex(
-            columns=[
-                'id',
-                'title',
-                'release_date',
-                'original_language',
-                'overview',
-                'revenue',
-            ]
-        )
+    )
+
+    df_dim_movie = df_movies.reindex(
+        columns=[
+            'id',
+            'title',
+            'release_date',
+            'original_language',
+            'overview',
+            'revenue',
+        ]
     )
 
     df_bridge_movie_genre = (
-        NdjsonReader(context.storage)
-        .read_all(datasets['genres_movies'])
-        .drop_duplicates(subset=['genre_id', 'movie_id'])
-        .reindex(columns=['movie_id', 'genre_id'])
+        df_movies[['id', 'genres']]
+        .explode('genres', ignore_index=True)
+        .dropna(subset=['genres'])
+        .rename(columns={'id': 'movie_id'})
+        .assign(genre_id=lambda d: d['genres'].str['id'])[['movie_id', 'genre_id']]
+        .drop_duplicates()
     )
 
     df_rating = (
         NdjsonReader(context.storage)
-        .read_all(datasets['ratings'])
+        .read_all(context.datalake, Dataset(**datasets['ratings']))
         .dropna()
         .reindex(columns=['user_id', 'movie_id', 'rating', 'timestamp'])
     )
@@ -256,11 +238,37 @@ def load(
 
 def run():
 
+    # TODO: this config should be defined in a file
+    DATALAKE_CONFIG = DataLakeConfig(
+        max_file_size_mb=128,
+        layers={
+            Layer.BRONZE: LayerConfig(
+                root='bronze',
+                format=FileFormat.NDJSON,
+            ),
+            Layer.QUARANTINE: LayerConfig(
+                root='quarantine',
+                format=FileFormat.NDJSON,
+            ),
+            Layer.SILVER: LayerConfig(
+                root='silver',
+                format=FileFormat.PARQUET,
+            ),
+            Layer.GOLD: LayerConfig(
+                root='gold',
+                format=FileFormat.PARQUET,
+            ),
+        },
+    )
+
+    STORAGE = StorageFactory.create('local', os.environ['LOCAL_STORAGE'])
+
     # Loading settings
     context = ExecutionContext(
+        datalake=DataLake(DATALAKE_CONFIG, STORAGE),
         run_start_time=datetime.now(timezone.utc),
         settings=Settings.from_env(),
-        storage=StorageFactory.create('local', os.environ['LOCAL_STORAGE']),
+        storage=STORAGE,  # TODO: storage is probably not required since already in datalake
     )
 
     # Running the ETL process

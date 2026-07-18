@@ -20,4 +20,4 @@ COPY src ./src
 
 RUN uv sync --frozen --no-dev --no-editable
 
-CMD ["python", "-m", "movie_etl"]
+CMD ["python", "-m", "pipeline"]

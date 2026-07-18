@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 
-import movie_etl.pipeline as pipeline
+from pipeline import job
 
 
 def main():
@@ -12,12 +12,12 @@ def main():
         logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     )
 
-    logger = logging.getLogger('movie_etl')
+    logger = logging.getLogger('pipeline')
     logger.setLevel(os.getenv('LOG_LEVEL', 'INFO').upper())
     logger.addHandler(handler)
     logger.propagate = False
 
-    pipeline.run()
+    job.run()
 
 
 if __name__ == '__main__':
