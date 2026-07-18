@@ -110,13 +110,34 @@ class Database:
                 )
 
             except SQLAlchemyError as error:
-                # Log only the core database error message (hides the raw rows)
-                logger.error('Error loading data: %s', getattr(error, 'orig', error))
+                orig = getattr(error, 'orig', None)
 
-                # Raise a clean exception without the massive DataFrame dump
+                logger.error(
+                    "Failed to upsert table '%s' (%d rows): %s",
+                    table_name,
+                    len(df),
+                    getattr(error, 'orig', error),
+                )
+
+                if orig is not None:
+                    logger.error('Database error: %s', orig)
+
+                    diag = getattr(orig, 'diag', None)
+                    if diag:
+                        logger.error('Detail: %s', diag.message_detail)
+                        logger.error('Hint: %s', diag.message_hint)
+                        logger.error('Context: %s', diag.context)
+
+                logger.debug('Columns:\n%s', df.dtypes)
+
+                logger.debug(
+                    'Sample rows:\n%s',
+                    df.head(3).to_string(index=False),
+                )
+
                 raise RuntimeError(
-                    'Database upsert failed due to a constraint or type error.'
-                ) from None
+                    f"Database upsert failed for table '{table_name}'."
+                ) from error
 
     def count_movies(self) -> int:
         """

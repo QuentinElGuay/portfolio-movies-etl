@@ -76,7 +76,11 @@ def download_endpoint(
                 errors += 1
 
         logger.info('Downloaded %d %s from endpoint.', successes, endpoint.name)
-        logger.info('%d downloaded %s went to quarantine.', errors, endpoint.name)
+
+        if errors > 0:
+            logger.warning(
+                '%d downloaded %s went to quarantine.', errors, endpoint.name
+            )
 
     return bronze_dataset.to_dict()
 
@@ -140,7 +144,7 @@ def transform(
         .reindex(columns=['id', 'name'])
     )
 
-    df_dim_movie = (
+    df_movies = (
         NdjsonReader(context.storage)
         .read_all(context.datalake, Dataset(**datasets['movies']))
         .assign(
@@ -152,26 +156,27 @@ def transform(
             )
         )
         .drop_duplicates(subset=['id'])
-        .reindex(
-            columns=[
-                'id',
-                'title',
-                'release_date',
-                'original_language',
-                'overview',
-                'revenue',
-            ]
-        )
     )
 
-# TODO: This dataset must be derived from "movies"
-#    df_bridge_movie_genre = (
-#        NdjsonReader(context.storage)
-#        .read_all(datasets['genres_movies'])
-#        .drop_duplicates(subset=['genre_id', 'movie_id'])
-#        .reindex(columns=['movie_id', 'genre_id'])
-#    )
-    df_bridge_movie_genre = pd.DataFrame()
+    df_dim_movie = df_movies.reindex(
+        columns=[
+            'id',
+            'title',
+            'release_date',
+            'original_language',
+            'overview',
+            'revenue',
+        ]
+    )
+
+    df_bridge_movie_genre = (
+        df_movies[['id', 'genres']]
+        .explode('genres', ignore_index=True)
+        .dropna(subset=['genres'])
+        .rename(columns={'id': 'movie_id'})
+        .assign(genre_id=lambda d: d['genres'].str['id'])[['movie_id', 'genre_id']]
+        .drop_duplicates()
+    )
 
     df_rating = (
         NdjsonReader(context.storage)
