@@ -10,8 +10,8 @@
 > incomplete or subject to refactoring as the architecture evolves. See the [Roadmap](#roadmap) section for
 > planned improvements.
 >
-> Current development is targeting **[v0.3.0](#release-history)**, focused on API validation with Pydantic. Future
-> milestones include a Gold layer, BI dashboard, Airflow orchestration, cloud deployment, CI/CD and
+> Current development is targeting **[v0.3.1](#release-history)**, focused on ingestion metadata and immutability.
+> Future milestones include a Gold layer, BI dashboard, Airflow orchestration, cloud deployment, CI/CD and
 > automated testing.
 
 ## Table of Contents
@@ -206,7 +206,8 @@ docker compose down --volumes --rmi local
 - ✅ Raw data lake (Bronze)
 - ✅ ELT pipeline
 - ✅ Dimensional modeling (Star Schema)
-- 🚧 API validation (Pydantic)
+- ✅ API validation (Pydantic)
+- 🚧 Ingestion metadata and immutability
 - ⏳ Gold layer
 - ⏳ BI dashboard
 - ⏳ Airflow orchestration
@@ -219,7 +220,8 @@ docker compose down --volumes --rmi local
 
 - **v0.1.0:** Initial ETL pipeline, REST API ingestion, PostgreSQL loading, and Docker Compose.
 - **v0.2.0:** ELT architecture and dimensional modeling (star schema).
-- **v0.3.0** _(in progress)_: API validation with Pydantic.
+- **v0.3.0:** Data Quality & Lake Ingestion
+- **v0.3.1:** _(in progress)_ Ingestion Metadata and immutable Bronze partitions
 
 ## Contributing
 
