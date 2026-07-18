@@ -188,7 +188,7 @@ docker compose up prepare-data api postgres -d
 Run the ETL pipeline
 
 ```bash
-docker compose run --rm etl
+docker compose run --rm pipeline
 ```
 
 ### Clean up Docker resources

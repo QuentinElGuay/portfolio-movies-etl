@@ -2,10 +2,12 @@ import logging
 
 import pandas as pd
 
-from pipeline.files.storage import ObjectStorage
+from pipeline.datalake import DataLake, Dataset
+from pipeline.storage.object_storage import ObjectStorage
 
 
 logger = logging.getLogger(f'pipeline.{__name__}')
+
 
 class NdjsonReader:
     """
@@ -23,7 +25,8 @@ class NdjsonReader:
 
     def read_all(
         self,
-        folder_path: str,
+        datalake: DataLake,
+        dataset: Dataset,
         extension: str = 'ndjson.gz',
         columns: list = [],
         **kwargs,
@@ -40,12 +43,12 @@ class NdjsonReader:
         Returns:
             A single combined pandas DataFrame.
         """
+        folder_path = datalake.prefix(dataset)
+
         files = self.storage.list(folder_path, extension)
 
         if not files:
-            logger.warning(
-                'Warning: No matching NDJSON files found in %s', folder_path
-            )
+            logger.warning('Warning: No matching NDJSON files found in %s', folder_path)
 
         df_list = []
         for file in files:

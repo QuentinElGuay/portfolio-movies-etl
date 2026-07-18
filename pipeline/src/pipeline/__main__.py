@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 
-from pipeline import pipeline
+from pipeline import job
 
 
 def main():
@@ -17,7 +17,7 @@ def main():
     logger.addHandler(handler)
     logger.propagate = False
 
-    pipeline.run()
+    job.run()
 
 
 if __name__ == '__main__':

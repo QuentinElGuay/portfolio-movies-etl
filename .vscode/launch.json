@@ -12,7 +12,7 @@
             "console": "integratedTerminal",
             "envFile": "${workspaceFolder}/.env",
             "env": {
-                "LOCAL_STORAGE": "${workspaceFolder}/storage"
+                "LOCAL_STORAGE": "${workspaceFolder}/local_storage"
             }
         }
     ]

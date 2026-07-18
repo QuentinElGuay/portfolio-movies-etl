@@ -5,9 +5,10 @@ from math import ceil
 from pathlib import Path
 import shutil
 import tempfile
-from typing import Any, Callable, Protocol
+from typing import Any, Protocol
 
-from pipeline.files.storage import Dataset, Layer, ObjectStorage
+from pipeline.datalake import DataLake, Dataset
+from pipeline.storage.object_storage import ObjectStorage
 
 
 logger = logging.getLogger(f'pipeline.{__name__}')
@@ -27,11 +28,12 @@ def compress_file(source_path: Path, output_path: Path):
 
 class FileWriter(Protocol):
     """Protocol for all the writers"""
+
     def write(self, record: dict[str, Any]) -> None: ...
 
     def close(self) -> None: ...
 
-    def __enter__(self) -> "FileWriter": ...
+    def __enter__(self) -> 'FileWriter': ...
 
     def __exit__(self, *args: object) -> None: ...
 
@@ -46,74 +48,55 @@ class WriterFactory(Protocol):
     ) -> FileWriter: ...
 
 
-class WriterManager:
-
+class WritersManager:
     def __init__(
         self,
         *,
-        storage: ObjectStorage,
-        root_prefix: str,
+        datalake: DataLake,
         writer_factory: WriterFactory,
     ) -> None:
-
-        self.storage = storage
-        self.root_prefix = root_prefix.rstrip("/")
+        self.datalake = datalake
         self.writer_factory = writer_factory
 
-        self._writers: dict[
-            tuple[Layer, str],
-            FileWriter,
-        ] = {}
+        self._writers: dict[Dataset, FileWriter] = {}
 
     def write(
         self,
         *,
-        layer: Layer,
-        dataset: Dataset[Any],
+        dataset: Dataset,
         record: JsonDict,
     ) -> None:
-
-        writer = self._get_writer(layer, dataset)
+        writer = self._get_writer(dataset)
         writer.write(record)
 
     def _get_writer(
         self,
-        layer: Layer,
-        dataset: Dataset[Any],
+        dataset: Dataset,
     ) -> FileWriter:
 
-        key = (layer, dataset.name)
+        writer = self._writers.get(dataset)
 
-        if key not in self._writers:
-
-            prefix = (
-                f"{self.root_prefix}/"
-                f"{layer.value}/"
-                f"{dataset.name}/"
-            )
-
+        if writer is None:
             writer = self.writer_factory(
-                object_storage=self.storage,
-                prefix=prefix,
-                max_file_size_mb=dataset.max_file_size_mb,
+                object_storage=self.datalake.storage,
+                prefix=self.datalake.prefix(dataset),
+                max_file_size_mb=self.datalake.config.max_file_size_mb,
             )
 
-            self._writers[key] = writer
+            self._writers[dataset] = writer
 
-        return self._writers[key]
+        return writer
 
     def close(self) -> None:
-
         for writer in self._writers.values():
             writer.close()
 
         self._writers.clear()
 
-    def __enter__(self) -> "WriterManager":
+    def __enter__(self) -> 'WritersManager':
         return self
 
     def __exit__(self, exc_type, exc, tb):
-
         self.close()
 
 

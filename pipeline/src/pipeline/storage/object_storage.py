@@ -1,28 +1,9 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from enum import StrEnum
 import logging
 from pathlib import Path
 import shutil
 
 logger = logging.getLogger(f'pipeline.{__name__}')
-
-
-class Layer(StrEnum):
-    BRONZE = "bronze"
-    SILVER = "silver"
-    GOLD = "gold"
-    QUARANTINE = "quarantine"
-
-
-@dataclass(frozen=True)
-class Dataset[T]:
-    name: str
-    model: type[T]
-
-    # TODO: this configuration should come from parametrization
-    max_file_size_mb: int = 64
-    compression: bool = True
 
 
 class ObjectStorage(ABC):

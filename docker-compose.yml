@@ -67,7 +67,7 @@ services:
         condition: service_healthy
 
     volumes:
-      - ./storage:/storage
+      - ./local_storage:/storage
 
     environment:
       API_BASE_URL: http://api:5000
