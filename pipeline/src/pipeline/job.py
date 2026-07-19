@@ -19,7 +19,7 @@ from pipeline.ingestion.api import (
     ApiClient,
     Endpoint,
 )
-from pipeline.ingestion.validation import validate_records
+from pipeline.ingestion.validation import validate_record
 from pipeline.config import Settings
 from pipeline.datalake import DataLake, Layer
 from pipeline.load.database import Database
@@ -64,11 +64,16 @@ def download_endpoint(
     successes = 0
     errors = 0
 
+    expected_fields = frozenset(endpoint.model.model_fields)
+    unexpected_fields: set[str] = set()
+
     with WritersManager(
         datalake=context.datalake, writer_factory=NdjsonWriter
     ) as writers:
         for record in api_client.get_endpoint(endpoint.path):
-            validation_result = validate_records(record, endpoint.model)
+            unexpected_fields.update(record.keys() - expected_fields)
+
+            validation_result = validate_record(record, endpoint.model)
             if validation_result.model:
                 writers.write(
                     dataset=bronze_dataset,
@@ -94,6 +99,16 @@ def download_endpoint(
                 '%d downloaded %s went to quarantine.', errors, endpoint.name
             )
 
+    # TODO: temporary, unexpected_fields should raise an alert and be stored in the manifest file
+    if len(unexpected_fields) > 0:
+        logger.warning(
+            'Found %s unexpected field(s) for endpoint %s: %s.',
+            len(unexpected_fields),
+            endpoint.name,
+            unexpected_fields,
+        )
+
+    # TODO: complete the return type to add metadadata like len(success), len(errors) and unexpected_fields
     return bronze_dataset.to_dict()
 
 
@@ -127,11 +142,14 @@ def extract(context: ExecutionContext) -> dict[str, Dataset]:
 
         session.headers.update(headers)
 
+        # TODO: receive DownloadResults insted of simple datasets
         datasets = {
             'genres': download_endpoint(context, api_client, GENRES_ENDPOINT),
             'movies': download_endpoint(context, api_client, MOVIES_ENDPOINT),
             'ratings': download_endpoint(context, api_client, RATINGS_ENDPOINT),
         }
+
+        #TODO: write the manifest file
 
     logger.info('EXTRACT STEP EXECUTED WITH SUCCESS')
 

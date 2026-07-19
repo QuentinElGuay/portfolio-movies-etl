@@ -17,7 +17,9 @@ class ValidationResult[T]:
     errors: list[Any] | None
 
 
-def validate_records(record: dict[str, Any], model: type[T]) -> ValidationResult:
+def validate_record[T: BaseModel](
+    record: dict[str, Any], model: type[T]
+) -> ValidationResult[T]:
     """
     Validate API record and yield the validation outcome for each record.
     """
@@ -25,7 +27,4 @@ def validate_records(record: dict[str, Any], model: type[T]) -> ValidationResult
         obj = model.model_validate(record)
         return ValidationResult(record, obj, None)
     except ValidationError as exc:
-        logger.error(exc.errors(include_url=False))
-        logger.error(record)
-        exit()
         return ValidationResult(record, None, exc.errors(include_url=False))

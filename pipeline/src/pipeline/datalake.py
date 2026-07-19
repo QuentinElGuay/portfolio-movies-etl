@@ -68,7 +68,6 @@ class Dataset:
         return self in {Layer.BRONZE, Layer.QUARANTINE}
 
 
-
 class DataLake:
     """
     Organizes datasets within an object storage.

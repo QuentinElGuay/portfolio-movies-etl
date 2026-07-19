@@ -17,13 +17,6 @@ class Genre(BaseModel):
     name: Annotated[str, Field(min_length=1, max_length=20)]
 
 
-class MovieGenre(BaseModel):
-    model_config = ConfigDict(extra='forbid')
-
-    movie_id: MovieId
-    genre_id: GenreId
-
-
 class Movie(BaseModel):
     model_config = ConfigDict(extra='ignore')
 
