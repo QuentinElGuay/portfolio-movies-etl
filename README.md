@@ -207,7 +207,7 @@ docker compose down --volumes --rmi local
 - ✅ ELT pipeline
 - ✅ Dimensional modeling (Star Schema)
 - ✅ API validation (Pydantic)
-- 🚧 Ingestion metadata and immutability
+- ✅ Ingestion metadata and immutability
 - ⏳ Gold layer
 - ⏳ BI dashboard
 - ⏳ Airflow orchestration
