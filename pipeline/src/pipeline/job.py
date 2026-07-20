@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime, timezone  # TODO: use TZ configuration
 from enum import StrEnum
 import logging
@@ -228,18 +228,18 @@ def extract(context: ExecutionContext) -> dict[str, Dataset]:
             dataset_references.append(dataset_reference)
 
             metadata = IngestionMetadata(
-                    run_id=context.run_id,
-                    dataset=result.dataset.name,
-                    layer=result.dataset.layer.value,
-                    endpoint=endpoint.path,
-                    snapshot_date=result.dataset.snapshot_date,
-                    started_at=result.started_at,
-                    finished_at=result.finished_at,
-                    status=result.status,
-                    records_valid=result.records_valid,
-                    records_invalid=result.records_invalid,
-                    unexpected_fields=result.unexpected_fields,
-                )
+                run_id=context.run_id,
+                dataset=result.dataset.name,
+                layer=result.dataset.layer.value,
+                endpoint=endpoint.path,
+                snapshot_date=result.dataset.snapshot_date,
+                started_at=result.started_at,
+                finished_at=result.finished_at,
+                status=result.status,
+                records_valid=result.records_valid,
+                records_invalid=result.records_invalid,
+                unexpected_fields=result.unexpected_fields,
+            )
 
             context.storage.write_json(
                 path=f'{dataset_reference.dataset_uri}/manifest.json',
@@ -248,33 +248,41 @@ def extract(context: ExecutionContext) -> dict[str, Dataset]:
 
     logger.info('EXTRACT STEP EXECUTED WITH SUCCESS')
 
-    return IngestionOutput(
-        run_id=context.run_id,
-        datasets=tuple(dataset_references),
+    return asdict(
+        IngestionOutput(
+            run_id=context.run_id,
+            datasets=tuple(dataset_references),
+        )
     )
 
 
-def transform(
+def clean(
     context: ExecutionContext,
     datasets: dict[str, dict[str, str]],
 ) -> list[dict[str, str]]:
     """
-    Execute the Transform step of the ETL process
+    Execute the cleaning and standardization step of the ELT process
     """
-    logger.info('STARTING TRANSFORMATION STEP')
+    logger.info('STARTING CLEAN STEP')
 
     results = []
+
+    # Temporary fix
+    datasets = {
+        dataset['dataset_name']: dataset['dataset_uri']
+        for dataset in datasets['datasets']
+    }  # TODO: change structure
 
     # TODO: create specific functions for each dataset
     df_dim_genre = (
         NdjsonReader(context.storage)
-        .read_all(context.datalake, Dataset(**datasets['genres']))
+        .read_all(datasets['genres'])
         .reindex(columns=['id', 'name'])
     )
 
     df_movies = (
         NdjsonReader(context.storage)
-        .read_all(context.datalake, Dataset(**datasets['movies']))
+        .read_all(datasets['movies'])
         .assign(
             release_date=lambda df: (
                 pd.to_datetime(
@@ -308,7 +316,7 @@ def transform(
 
     df_rating = (
         NdjsonReader(context.storage)
-        .read_all(context.datalake, Dataset(**datasets['ratings']))
+        .read_all(datasets['ratings'])
         .dropna()
         .reindex(columns=['user_id', 'movie_id', 'rating', 'timestamp'])
     )
@@ -331,7 +339,7 @@ def transform(
         df.to_parquet(f'{output_path}/part-0000.parquet', compression='snappy')
         results.append({'name': name, 'path': output_path})
 
-    logger.info('TRANSFORM STEP EXECUTED WITH SUCCESS')
+    logger.info('CLEAN STEP EXECUTED WITH SUCCESS')
 
     return results
 
@@ -403,7 +411,7 @@ def run():
     # Running the ETL process
     logger.info('STARTING ETL PROCESS')
     ingestion_result = extract(context)
-    transformation_result = transform(context, ingestion_result)
+    transformation_result = clean(context, ingestion_result)
     load(context, transformation_result)
 
     logger.info('ETL PROCESS EXECUTED WITH SUCCESS')

@@ -25,8 +25,7 @@ class NdjsonReader:
 
     def read_all(
         self,
-        datalake: DataLake,
-        dataset: Dataset,
+        folder_path: str,
         extension: str = 'ndjson.gz',
         columns: list = [],
         **kwargs,
@@ -43,8 +42,6 @@ class NdjsonReader:
         Returns:
             A single combined pandas DataFrame.
         """
-        folder_path = datalake.prefix(dataset)
-
         files = self.storage.list(folder_path, extension)
 
         if not files:
