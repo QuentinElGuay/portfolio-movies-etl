@@ -16,7 +16,6 @@
 ## Table of Contents
 
 - [Overview](#overview)
-- [Goal](#goal)
 - [Dataset](#dataset)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
@@ -229,7 +228,7 @@ The roadmap below reflects the planned evolution of the project through incremen
   * ✅ Manifest files
   * ✅ Immutable Bronze snapshots
 
-* **v0.5.0: Silver Layer & Data Refinement** *(work in progress)*
+* *v0.5.0: Silver Layer & Data Refinement (work in progress)*
 
   * 🚧 Generic extraction framework
   * 🚧 Dataset standardization
