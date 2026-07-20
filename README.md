@@ -9,7 +9,7 @@
 > incrementally while maintaining a working end-to-end pipeline. Some components are intentionally
 > incomplete or subject to refactoring as the architecture evolves.
 >
-> Current development is targeting **[v0.5.0](#v050-silver-layer-data-refinement-work-in-progress)**, focused on the Gold Layer & Data Visualization.
+> Current development is targeting **[v0.5.0](#v050-silver-layer--data-refinement-work-in-progress)**, focused on the Gold Layer & Data Visualization.
 > Future milestones include a Gold layer, BI dashboard, Airflow orchestration, cloud deployment, CI/CD and
 > automated testing. See the [Roadmap](#roadmap) section for planned improvements.
 
