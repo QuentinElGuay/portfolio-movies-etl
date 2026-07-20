@@ -10,7 +10,7 @@
 > incomplete or subject to refactoring as the architecture evolves. See the [Roadmap](#roadmap) section for
 > planned improvements.
 >
-> Current development is targeting **[v0.4.0](#release-history)**, focused on ingestion metadata and immutability.
+> Current development is targeting **[v0.5.0](#release-history)**, focused on the Gold Layer & Data Visualization.
 > Future milestones include a Gold layer, BI dashboard, Airflow orchestration, cloud deployment, CI/CD and
 > automated testing.
 
@@ -208,8 +208,8 @@ docker compose down --volumes --rmi local
 - ✅ Dimensional modeling (Star Schema)
 - ✅ API validation (Pydantic)
 - ✅ Ingestion metadata and immutability
-- ⏳ Gold layer
-- ⏳ BI dashboard
+- 🚧 Gold layer
+- 🚧 BI dashboard
 - ⏳ Airflow orchestration
 - ⏳ Cloud deployment
 - ⏳ Infrastructure as Code
@@ -218,10 +218,11 @@ docker compose down --volumes --rmi local
 
 ## Release History
 
-- **v0.1.0:** Initial ETL pipeline, REST API ingestion, PostgreSQL loading, and Docker Compose.
-- **v0.2.0:** ELT architecture and dimensional modeling (star schema).
-- **v0.3.0:** Data Quality & Lake Ingestion
+- **v0.5.0:** (_in progress_) Gold Layer & Data Visualization
 - **v0.4.0:** Metadata file and Bronze dataset immutability
+- **v0.3.0:** Data Quality & Lake Ingestion
+- **v0.2.0:** ELT architecture and dimensional modeling (star schema)
+- **v0.1.0:** Initial ETL pipeline, REST API ingestion, PostgreSQL loading, and Docker Compose
 
 ## Contributing
 
