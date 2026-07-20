@@ -7,12 +7,11 @@
 >
 > New features are implemented
 > incrementally while maintaining a working end-to-end pipeline. Some components are intentionally
-> incomplete or subject to refactoring as the architecture evolves. See the [Roadmap](#roadmap) section for
-> planned improvements.
+> incomplete or subject to refactoring as the architecture evolves.
 >
-> Current development is targeting **[v0.5.0](#release-history)**, focused on the Gold Layer & Data Visualization.
+> Current development is targeting **[v0.5.0](#roadmap)**, focused on the Gold Layer & Data Visualization.
 > Future milestones include a Gold layer, BI dashboard, Airflow orchestration, cloud deployment, CI/CD and
-> automated testing.
+> automated testing. See the [Roadmap](#roadmap) section for planned improvements.
 
 ## Table of Contents
 
@@ -27,7 +26,6 @@
   - [Run the project locally](#run-the-project-locally)
   - [Clean up Docker resources](#clean-up-docker-resources)
 - [Roadmap](#roadmap)
-- [Release History](#release-history)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -201,28 +199,76 @@ docker compose down --volumes --rmi local
 
 ## Roadmap
 
-- ✅ REST API
-- ✅ Batch ingestion
-- ✅ Raw data lake (Bronze)
-- ✅ ELT pipeline
-- ✅ Dimensional modeling (Star Schema)
-- ✅ API validation (Pydantic)
-- ✅ Ingestion metadata and immutability
-- 🚧 Gold layer
-- 🚧 BI dashboard
-- ⏳ Airflow orchestration
-- ⏳ Cloud deployment
-- ⏳ Infrastructure as Code
-- ⏳ Automated testing
-- ⏳ CI/CD
+This project follows an iterative, real-world development approach, where each release introduces a coherent set of features while continuously improving the overall architecture.
 
-## Release History
+The roadmap is designed to satisfy the requirements of the **Data Engineering Zoomcamp** final project, as described in the [Overview](#overview), while showcasing how a simple data pipeline can progressively evolve into a production-ready data platform.
 
-- **v0.5.0:** (_in progress_) Gold Layer & Data Visualization
-- **v0.4.0:** Metadata file and Bronze dataset immutability
-- **v0.3.0:** Data Quality & Lake Ingestion
-- **v0.2.0:** ELT architecture and dimensional modeling (star schema)
-- **v0.1.0:** Initial ETL pipeline, REST API ingestion, PostgreSQL loading, and Docker Compose
+The first versions intentionally rely on a custom Python implementation to better understand and demonstrate the fundamentals of data engineering. As the project matures, additional technologies will be introduced to reflect common industry practices, including workflow orchestration, cloud storage, infrastructure as code, and analytical tooling. Future iterations may also explore technologies such as Apache Spark, dbt, streaming pipelines or cloud-native data warehouses like BigQuery.
+
+The roadmap below reflects the planned evolution of the project through incremental milestones:
+
+* **v0.1.0: MVP Pipeline**
+
+  * ✅ REST API ingestion
+  * ✅ Batch ingestion
+  * ✅ PostgreSQL loading
+  * ✅ Docker Compose
+
+* **v0.2.0: ELT Architecture & Dimensional Modeling**
+
+  * ✅ ELT pipeline
+  * ✅ Basic dimensional modeling (star schema)
+
+* **v0.3.0: Lake Ingestion & Data Validation**
+
+  * ✅ Bronze data lake
+  * ✅ API schema validation (Pydantic)
+
+* **v0.4.0: Bronze Layer Reliability & Metadata Management**
+
+  * ✅ Manifest files
+  * ✅ Immutable Bronze snapshots
+
+* **v0.5.0: Silver Layer & Data Refinement** *(work in progress)*
+
+  * 🚧 Generic extraction framework
+  * 🚧 Dataset standardization
+
+* v0.6.0: Gold Layer & Data Visualization
+
+  * ⏳ PostgreSQL analytical views
+  * ⏳ Metabase dashboard
+
+* v0.7.0: Cloud Storage Integration
+
+  * ⏳ S3-compatible object storage
+  * ⏳ MinIO local environment
+
+* v0.8.0: Pipeline Execution & Orchestration
+
+  * ⏳ Pipeline CLI
+  * ⏳ Airflow orchestration
+
+* v0.9.0: Testing, Quality & Tooling
+
+  * ⏳ Automated testing
+  * ⏳ Pre-commit hooks
+  * ⏳ CI checks
+  * ⏳ Code formatting and linting
+  * ⏳ Makefile
+  * ⏳ Project documentation
+
+* v0.10.0: Infrastructure as Code
+
+  * ⏳ Terraform infrastructure
+  * ⏳ Environment provisioning
+
+* v1.0.0: Production-Ready Data Platform
+
+  * ⏳ Cloud deployment
+  * ⏳ Automated pipeline execution
+  * ⏳ CI/CD
+  * ⏳ Monitoring and observability
 
 ## Contributing
 
