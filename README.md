@@ -10,7 +10,7 @@
 > incomplete or subject to refactoring as the architecture evolves. See the [Roadmap](#roadmap) section for
 > planned improvements.
 >
-> Current development is targeting **[v0.3.1](#release-history)**, focused on ingestion metadata and immutability.
+> Current development is targeting **[v0.4.0](#release-history)**, focused on ingestion metadata and immutability.
 > Future milestones include a Gold layer, BI dashboard, Airflow orchestration, cloud deployment, CI/CD and
 > automated testing.
 
@@ -221,7 +221,7 @@ docker compose down --volumes --rmi local
 - **v0.1.0:** Initial ETL pipeline, REST API ingestion, PostgreSQL loading, and Docker Compose.
 - **v0.2.0:** ELT architecture and dimensional modeling (star schema).
 - **v0.3.0:** Data Quality & Lake Ingestion
-- **v0.3.1:** _(in progress)_ Ingestion Metadata and immutable Bronze partitions
+- **v0.4.0:** Metadata file and Bronze dataset immutability
 
 ## Contributing
 
