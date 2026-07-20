@@ -146,7 +146,7 @@ flowchart LR
 ```text
 .
 ├── api/                Flask REST API exposing the movie dataset
-├── pipeline/                ELT pipeline implementation
+├── pipeline/           ELT pipeline implementation
 ├── docs/               Project documentation (future)
 ├── .github/            GitHub Actions workflows (future)
 ├── docker-compose.yml  Local development environment
