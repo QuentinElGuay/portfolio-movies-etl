@@ -9,7 +9,7 @@
 > incrementally while maintaining a working end-to-end pipeline. Some components are intentionally
 > incomplete or subject to refactoring as the architecture evolves.
 >
-> Current development is targeting **[v0.5.0](#roadmap)**, focused on the Gold Layer & Data Visualization.
+> Current development is targeting **[v0.5.0](#v050-silver-layer-data-refinement-work-in-progress)**, focused on the Gold Layer & Data Visualization.
 > Future milestones include a Gold layer, BI dashboard, Airflow orchestration, cloud deployment, CI/CD and
 > automated testing. See the [Roadmap](#roadmap) section for planned improvements.
 
@@ -206,49 +206,49 @@ The first versions intentionally rely on a custom Python implementation to bette
 
 The roadmap below reflects the planned evolution of the project through incremental milestones:
 
-* **v0.1.0: MVP Pipeline**
+#### v0.1.0: MVP Pipeline
 
   * ✅ REST API ingestion
   * ✅ Batch ingestion
   * ✅ PostgreSQL loading
   * ✅ Docker Compose
 
-* **v0.2.0: ELT Architecture & Dimensional Modeling**
+#### v0.2.0: ELT Architecture & Dimensional Modeling**
 
   * ✅ ELT pipeline
   * ✅ Basic dimensional modeling (star schema)
 
-* **v0.3.0: Lake Ingestion & Data Validation**
+#### v0.3.0: Lake Ingestion & Data Validation**
 
   * ✅ Bronze data lake
   * ✅ API schema validation (Pydantic)
 
-* **v0.4.0: Bronze Layer Reliability & Metadata Management**
+#### v0.4.0: Bronze Layer Reliability & Metadata Management**
 
   * ✅ Manifest files
   * ✅ Immutable Bronze snapshots
 
-* *v0.5.0: Silver Layer & Data Refinement (work in progress)*
+#### v0.5.0: Silver Layer & Data Refinement (work in progress)
 
   * 🚧 Generic extraction framework
   * 🚧 Dataset standardization
 
-* v0.6.0: Gold Layer & Data Visualization
+#### v0.6.0: Gold Layer & Data Visualization
 
   * ⏳ PostgreSQL analytical views
   * ⏳ Metabase dashboard
 
-* v0.7.0: Cloud Storage Integration
+#### v0.7.0: Cloud Storage Integration
 
   * ⏳ S3-compatible object storage
   * ⏳ MinIO local environment
 
-* v0.8.0: Pipeline Execution & Orchestration
+#### v0.8.0: Pipeline Execution & Orchestration
 
   * ⏳ Pipeline CLI
   * ⏳ Airflow orchestration
 
-* v0.9.0: Testing, Quality & Tooling
+#### v0.9.0: Testing, Quality & Tooling
 
   * ⏳ Automated testing
   * ⏳ Pre-commit hooks
@@ -257,12 +257,12 @@ The roadmap below reflects the planned evolution of the project through incremen
   * ⏳ Makefile
   * ⏳ Project documentation
 
-* v0.10.0: Infrastructure as Code
+#### v0.10.0: Infrastructure as Code
 
   * ⏳ Terraform infrastructure
   * ⏳ Environment provisioning
 
-* v1.0.0: Production-Ready Data Platform
+#### v1.0.0: Production-Ready Data Platform
 
   * ⏳ Cloud deployment
   * ⏳ Automated pipeline execution
