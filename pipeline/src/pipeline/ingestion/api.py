@@ -20,7 +20,7 @@ MAX_PAGE_SIZE = 2000
 class Endpoint:
     name: str
     path: str
-    model: BaseModel | None
+    model: type[BaseModel] | None
 
 
 AUTH_ENDPOINT = Endpoint('auth', '/auth', None)

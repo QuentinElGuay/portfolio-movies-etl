@@ -45,13 +45,15 @@ class Dataset:
 
     name: str
     layer: Layer
-    snapshot_date: date = date.today()
+    snapshot_date: date
+    run_id: str | None
 
     def to_dict(self) -> dict[str, str]:
         return {
             'name': self.name,
             'layer': self.layer.value,
             'snapshot_date': self.snapshot_date,
+            'run_id': self.run_id,
         }
 
     @classmethod
@@ -60,6 +62,10 @@ class Dataset:
             name=value['name'],
             layer=Layer(value['layer']),
         )
+
+    @property
+    def uses_run_id(self) -> bool:
+        return self in {Layer.BRONZE, Layer.QUARANTINE}
 
 
 class DataLake:
@@ -86,11 +92,19 @@ class DataLake:
             silver/dim_movie/date=2026-07-17/
         """
 
-        return str(
+        prefix = (
             PurePosixPath(dataset.layer)
             / dataset.name
             / f'date={dataset.snapshot_date.isoformat()}'
         )
+
+        if dataset.uses_run_id:
+            if dataset.run_id is None:
+                raise ValueError(f'{dataset.layer} datasets require a run_id.')
+
+            prefix = prefix / f'run_id={dataset.run_id}'
+
+        return str(prefix)
 
     def uri(self, dataset: Dataset) -> str:
         """Return the storage URI for a dataset."""

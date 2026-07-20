@@ -1,9 +1,12 @@
-from dataclasses import dataclass
-from datetime import UTC, datetime, timezone
+from dataclasses import asdict, dataclass
+from datetime import UTC, date, datetime, timezone  # TODO: use TZ configuration
+from enum import StrEnum
 import logging
 import os
 from pathlib import Path
+from pydantic import BaseModel
 from urllib3.util.retry import Retry
+from uuid import uuid7
 
 import pandas as pd
 import requests
@@ -18,7 +21,7 @@ from pipeline.ingestion.api import (
     ApiClient,
     Endpoint,
 )
-from pipeline.ingestion.validation import validate_records
+from pipeline.ingestion.validation import validate_record
 from pipeline.config import Settings
 from pipeline.datalake import DataLake, Layer
 from pipeline.load.database import Database
@@ -29,6 +32,14 @@ from pipeline.storage.object_storage import ObjectStorage, StorageFactory
 logger = logging.getLogger(__name__)
 
 
+class IngestionStatus(StrEnum):
+    """Endpoint download status."""
+
+    SUCCESS = 'success'
+    PARTIAL = 'partial'
+    FAILED = 'failed'
+
+
 @dataclass
 class ExecutionContext:
     """Object containing shared execution information"""
@@ -37,52 +48,141 @@ class ExecutionContext:
     run_start_time: datetime
     settings: Settings
     storage: ObjectStorage
+    run_id: str
 
 
-def download_endpoint(
+class IngestionMetadata(BaseModel):
+    run_id: str
+    dataset: str
+    layer: str
+    endpoint: str
+    snapshot_date: date
+
+    started_at: datetime
+    finished_at: datetime
+
+    status: IngestionStatus
+
+    records_valid: int
+    records_invalid: int
+    unexpected_fields: set[str]
+
+    schema_version: int = 1
+
+
+@dataclass(frozen=True)
+class IngestionResult:
+    dataset: Dataset
+    endpoint: str
+
+    started_at: datetime
+    finished_at: datetime
+
+    status: IngestionStatus
+
+    records_valid: int
+    records_invalid: int
+    unexpected_fields: set[str]
+
+
+@dataclass(frozen=True)
+class DatasetReference:
+    dataset_name: str
+    dataset_uri: str
+
+
+@dataclass(frozen=True)
+class IngestionOutput:
+    run_id: str
+    datasets: list[DatasetReference]
+
+
+def ingest_endpoint(
     context: ExecutionContext, api_client: ApiClient, endpoint: Endpoint
-) -> Dataset:
+) -> IngestionResult:
     """
-    Returns a string containing the prefix to the NdJson files created by the download of the
-    endpoint.
+    Ingest the data returned by a collection endpoint by writing the result in the datalake
     """
-    bronze_dataset = Dataset(endpoint.name, Layer.BRONZE)
-    quarantine = Dataset(endpoint.name, Layer.QUARANTINE)
+    bronze_dataset = Dataset(
+        endpoint.name,
+        Layer.BRONZE,
+        context.run_start_time.date(),
+        context.run_id,
+    )
+    quarantine = Dataset(
+        endpoint.name,
+        Layer.QUARANTINE,
+        context.run_start_time.date(),
+        context.run_id,
+    )
 
-    successes = 0
-    errors = 0
+    status = IngestionStatus.SUCCESS
+    started_at = datetime.now(UTC)
+    records_valid = 0
+    records_invalid = 0
 
-    with WritersManager(
-        datalake=context.datalake, writer_factory=NdjsonWriter
-    ) as writers:
-        for record in api_client.get_endpoint(endpoint.path):
-            validation_result = validate_records(record, endpoint.model)
-            if validation_result.model:
-                writers.write(
-                    dataset=bronze_dataset,
-                    record=validation_result.model.model_dump(mode='json'),
-                )
-                successes += 1
-            else:
-                writers.write(
-                    quarantine,
-                    {
-                        'endpoint': endpoint.path,
-                        'retrieved_at': datetime.now(UTC).isoformat(),
-                        'record': validation_result.record,
-                        'validation_errors': validation_result.errors,
-                    },
-                )
-                errors += 1
+    expected_fields = frozenset(endpoint.model.model_fields)
+    unexpected_fields: set[str] = set()
 
-        logger.info('Downloaded %d %s from endpoint.', successes, endpoint.name)
+    try:
+        with WritersManager(
+            datalake=context.datalake, writer_factory=NdjsonWriter
+        ) as writers:
+            for record in api_client.get_endpoint(endpoint.path):
+                unexpected_fields.update(record.keys() - expected_fields)
 
-        if errors > 0:
-            logger.warning(
-                '%d downloaded %s went to quarantine.', errors, endpoint.name
-            )
+                validation_result = validate_record(record, endpoint.model)
+                if validation_result.model:
+                    writers.write(
+                        dataset=bronze_dataset,
+                        record=validation_result.model.model_dump(mode='json'),
+                    )
+                    records_valid += 1
+                else:
+                    writers.write(
+                        quarantine,
+                        {
+                            'endpoint': endpoint.path,
+                            'retrieved_at': datetime.now(UTC).isoformat(),
+                            'record': validation_result.record,
+                            'validation_errors': validation_result.errors,
+                        },
+                    )
+                    records_invalid += 1
+    except Exception:
+        status = IngestionStatus.FAILED
+        raise
 
-    return bronze_dataset.to_dict()
+    logger.info('Downloaded %d %s from endpoint.', records_valid, endpoint.name)
+
+    if records_invalid > 0:
+        logger.warning(
+            '%d downloaded %s went to quarantine.', records_invalid, endpoint.name
+        )
+
+        status = IngestionStatus.PARTIAL
+
+    # TODO: temporary, unexpected_fields should raise an alert and be stored in the manifest file
+    if len(unexpected_fields) > 0:
+        logger.warning(
+            'Found %s unexpected field(s) for endpoint %s: %s.',
+            len(unexpected_fields),
+            endpoint.name,
+            unexpected_fields,
+        )
+
+    ingestion_result = IngestionResult(
+        dataset=bronze_dataset,
+        endpoint=endpoint.path,
+        started_at=started_at,
+        finished_at=datetime.now(UTC),
+        status=status,
+        records_valid=records_valid,
+        records_invalid=records_invalid,
+        unexpected_fields=unexpected_fields,
+    )
+
+    return ingestion_result
 
 
 def extract(context: ExecutionContext) -> dict[str, Dataset]:
@@ -90,6 +190,8 @@ def extract(context: ExecutionContext) -> dict[str, Dataset]:
     Execute the Extract step of the ETL process
     """
     logger.info('STARTING EXTRACT STEP')
+
+    endpoints = (GENRES_ENDPOINT, MOVIES_ENDPOINT, RATINGS_ENDPOINT)
 
     with requests.Session() as session:
         retry_strategy = Retry(
@@ -112,41 +214,75 @@ def extract(context: ExecutionContext) -> dict[str, Dataset]:
         )
 
         headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/json'}
-
         session.headers.update(headers)
 
-        datasets = {
-            'genres': download_endpoint(context, api_client, GENRES_ENDPOINT),
-            'movies': download_endpoint(context, api_client, MOVIES_ENDPOINT),
-            'ratings': download_endpoint(context, api_client, RATINGS_ENDPOINT),
-        }
+        dataset_references: list[DatasetReference] = []
+
+        for endpoint in endpoints:
+            result = ingest_endpoint(context, api_client, endpoint)
+
+            dataset_reference = DatasetReference(
+                dataset_name=result.dataset.name,
+                dataset_uri=context.datalake.prefix(result.dataset),
+            )
+            dataset_references.append(dataset_reference)
+
+            metadata = IngestionMetadata(
+                run_id=context.run_id,
+                dataset=result.dataset.name,
+                layer=result.dataset.layer.value,
+                endpoint=endpoint.path,
+                snapshot_date=result.dataset.snapshot_date,
+                started_at=result.started_at,
+                finished_at=result.finished_at,
+                status=result.status,
+                records_valid=result.records_valid,
+                records_invalid=result.records_invalid,
+                unexpected_fields=result.unexpected_fields,
+            )
+
+            context.storage.write_json(
+                path=f'{dataset_reference.dataset_uri}/manifest.json',
+                value=metadata.model_dump(mode='json'),
+            )
 
     logger.info('EXTRACT STEP EXECUTED WITH SUCCESS')
 
-    return datasets
+    return asdict(
+        IngestionOutput(
+            run_id=context.run_id,
+            datasets=tuple(dataset_references),
+        )
+    )
 
 
-def transform(
+def clean(
     context: ExecutionContext,
     datasets: dict[str, dict[str, str]],
 ) -> list[dict[str, str]]:
     """
-    Execute the Transform step of the ETL process
+    Execute the cleaning and standardization step of the ELT process
     """
-    logger.info('STARTING TRANSFORMATION STEP')
+    logger.info('STARTING CLEAN STEP')
 
     results = []
+
+    # Temporary fix
+    datasets = {
+        dataset['dataset_name']: dataset['dataset_uri']
+        for dataset in datasets['datasets']
+    }  # TODO: change structure
 
     # TODO: create specific functions for each dataset
     df_dim_genre = (
         NdjsonReader(context.storage)
-        .read_all(context.datalake, Dataset(**datasets['genres']))
+        .read_all(datasets['genres'])
         .reindex(columns=['id', 'name'])
     )
 
     df_movies = (
         NdjsonReader(context.storage)
-        .read_all(context.datalake, Dataset(**datasets['movies']))
+        .read_all(datasets['movies'])
         .assign(
             release_date=lambda df: (
                 pd.to_datetime(
@@ -180,7 +316,7 @@ def transform(
 
     df_rating = (
         NdjsonReader(context.storage)
-        .read_all(context.datalake, Dataset(**datasets['ratings']))
+        .read_all(datasets['ratings'])
         .dropna()
         .reindex(columns=['user_id', 'movie_id', 'rating', 'timestamp'])
     )
@@ -203,7 +339,7 @@ def transform(
         df.to_parquet(f'{output_path}/part-0000.parquet', compression='snappy')
         results.append({'name': name, 'path': output_path})
 
-    logger.info('TRANSFORM STEP EXECUTED WITH SUCCESS')
+    logger.info('CLEAN STEP EXECUTED WITH SUCCESS')
 
     return results
 
@@ -267,6 +403,7 @@ def run():
     context = ExecutionContext(
         datalake=DataLake(DATALAKE_CONFIG, STORAGE),
         run_start_time=datetime.now(timezone.utc),
+        run_id=str(uuid7()),
         settings=Settings.from_env(),
         storage=STORAGE,  # TODO: storage is probably not required since already in datalake
     )
@@ -274,7 +411,7 @@ def run():
     # Running the ETL process
     logger.info('STARTING ETL PROCESS')
     ingestion_result = extract(context)
-    transformation_result = transform(context, ingestion_result)
+    transformation_result = clean(context, ingestion_result)
     load(context, transformation_result)
 
     logger.info('ETL PROCESS EXECUTED WITH SUCCESS')

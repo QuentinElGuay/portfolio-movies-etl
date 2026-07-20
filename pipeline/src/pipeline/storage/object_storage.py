@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
+import json
 import logging
 from pathlib import Path
 import shutil
+from typing import Any
 
 logger = logging.getLogger(f'pipeline.{__name__}')
 
@@ -28,6 +30,26 @@ class ObjectStorage(ABC):
     @abstractmethod
     def list(self, prefix: str, suffix: str | None = None) -> list[str]:
         """List of the files matching with the prefix and suffix arguments"""
+        ...
+
+    @abstractmethod
+    def write_text(
+        self,
+        path: str,
+        text: str,
+        *,
+        content_type: str = 'text/plain',
+    ) -> None:
+        """Write a simple text file to the storage"""
+        ...
+
+    # TODO: replace value type by a JSON type (from serialization)
+    def write_json(self, path: str, value: dict[Any, Any]) -> None:
+        self.write_text(
+            path,
+            json.dumps(value, indent=2, ensure_ascii=False, sort_keys=True),
+            content_type='application/json',
+        )
 
 
 class LocalStorage(ObjectStorage):
@@ -67,6 +89,27 @@ class LocalStorage(ObjectStorage):
 
     def exists(self, path: str) -> bool:
         return (Path(self.root) / path).exists()
+
+    def write_text(
+        self,
+        path: str,
+        text: str,
+        *,
+        content_type: str = 'text/plain',
+    ) -> None:
+        """
+        Write a UTF-8 text file.
+
+        The content_type parameter is ignored by the local implementation but
+        kept for compatibility with cloud object storage implementations.
+        """
+        file_path = Path(self.root) / path
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        file_path.write_text(
+            text,
+            encoding='utf-8',
+        )
 
 
 # TODO: implement this class
