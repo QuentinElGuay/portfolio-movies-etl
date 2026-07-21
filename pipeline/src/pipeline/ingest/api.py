@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import logging
 from typing import Any
 from urllib.parse import urljoin
-from pipeline.ingest.models import Genre, Movie, Rating
+from pipeline.models.ingest import Genre, Movie, Rating
 from pydantic import BaseModel
 import requests
 

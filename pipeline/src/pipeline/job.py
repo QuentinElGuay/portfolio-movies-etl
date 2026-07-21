@@ -1,10 +1,9 @@
 from dataclasses import asdict, dataclass
-from datetime import UTC, date, datetime, timezone  # TODO: use TZ configuration
-from enum import StrEnum
+from datetime import UTC, datetime, timezone  # TODO: use TZ configuration
 import logging
 import os
 from pathlib import Path
-from pydantic import BaseModel
+from pipeline.models.metadata import IngestionMetadata, IngestionStatus
 from urllib3.util.retry import Retry
 from uuid import uuid7
 
@@ -25,19 +24,11 @@ from pipeline.ingest.validation import validate_record
 from pipeline.config import Settings
 from pipeline.datalake import DataLake, Layer
 from pipeline.load.database import Database
-from pipeline.serialization.reader import NdjsonReader
-from pipeline.serialization.writer import NdjsonWriter, WritersManager
+from pipeline.serialize.reader import NdjsonReader
+from pipeline.serialize.writer import NdjsonWriter, WritersManager
 from pipeline.storage.object_storage import ObjectStorage, StorageFactory
 
 logger = logging.getLogger(__name__)
-
-
-class IngestionStatus(StrEnum):
-    """Endpoint download status."""
-
-    SUCCESS = 'success'
-    PARTIAL = 'partial'
-    FAILED = 'failed'
 
 
 @dataclass
@@ -50,24 +41,6 @@ class ExecutionContext:
     storage: ObjectStorage
     run_id: str
 
-
-class IngestionMetadata(BaseModel):
-    run_id: str
-    dataset: str
-    layer: str
-    endpoint: str
-    snapshot_date: date
-
-    started_at: datetime
-    finished_at: datetime
-
-    status: IngestionStatus
-
-    records_valid: int
-    records_invalid: int
-    unexpected_fields: set[str]
-
-    schema_version: int = 1
 
 
 @dataclass(frozen=True)
