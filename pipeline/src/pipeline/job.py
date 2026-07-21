@@ -13,7 +13,7 @@ import requests
 from requests.adapters import HTTPAdapter
 
 from pipeline.datalake import DataLakeConfig, Dataset, FileFormat, LayerConfig
-from pipeline.ingestion.api import (
+from pipeline.ingest.api import (
     AUTH_ENDPOINT,
     GENRES_ENDPOINT,
     RATINGS_ENDPOINT,
@@ -21,7 +21,7 @@ from pipeline.ingestion.api import (
     ApiClient,
     Endpoint,
 )
-from pipeline.ingestion.validation import validate_record
+from pipeline.ingest.validation import validate_record
 from pipeline.config import Settings
 from pipeline.datalake import DataLake, Layer
 from pipeline.load.database import Database
