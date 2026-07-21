@@ -3,7 +3,11 @@ from datetime import UTC, datetime, timezone  # TODO: use TZ configuration
 import logging
 import os
 from pathlib import Path
-from pipeline.models.metadata import IngestionMetadata, IngestionStatus
+from pipeline.models.metadata import (
+    METADATA_FILENAME,
+    IngestionMetadata,
+    IngestionStatus,
+)
 from urllib3.util.retry import Retry
 from uuid import uuid7
 
@@ -11,7 +15,7 @@ import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 
-from pipeline.datalake import DataLakeConfig, Dataset, FileFormat, LayerConfig
+from pipeline.datalake import DataLakeConfig, Dataset, DatasetReference, FileFormat, LayerConfig
 from pipeline.ingest.api import (
     AUTH_ENDPOINT,
     GENRES_ENDPOINT,
@@ -42,7 +46,6 @@ class ExecutionContext:
     run_id: str
 
 
-
 @dataclass(frozen=True)
 class IngestionResult:
     dataset: Dataset
@@ -59,12 +62,6 @@ class IngestionResult:
 
 
 @dataclass(frozen=True)
-class DatasetReference:
-    dataset_name: str
-    dataset_uri: str
-
-
-@dataclass(frozen=True)
 class IngestionOutput:
     run_id: str
     datasets: list[DatasetReference]
@@ -76,12 +73,15 @@ def ingest_endpoint(
     """
     Ingest the data returned by a collection endpoint by writing the result in the datalake
     """
+
+    # TODO: use datalake.get_dataset()
     bronze_dataset = Dataset(
         endpoint.name,
         Layer.BRONZE,
         context.run_start_time.date(),
         context.run_id,
     )
+    # TODO: use datalake.get_dataset()
     quarantine = Dataset(
         endpoint.name,
         Layer.QUARANTINE,
@@ -158,7 +158,7 @@ def ingest_endpoint(
     return ingestion_result
 
 
-def extract(context: ExecutionContext) -> dict[str, Dataset]:
+def extract(context: ExecutionContext) -> IngestionOutput:
     """
     Execute the Extract step of the ETL process
     """
@@ -189,6 +189,7 @@ def extract(context: ExecutionContext) -> dict[str, Dataset]:
         headers = {'Authorization': f'Bearer {token}', 'Accept': 'application/json'}
         session.headers.update(headers)
 
+        # TODO: This concept might not be required anymore
         dataset_references: list[DatasetReference] = []
 
         for endpoint in endpoints:
@@ -200,6 +201,7 @@ def extract(context: ExecutionContext) -> dict[str, Dataset]:
             )
             dataset_references.append(dataset_reference)
 
+            # TODO: metadata should be part of Dataset (with different metadate class for different layers)
             metadata = IngestionMetadata(
                 run_id=context.run_id,
                 dataset=result.dataset.name,
@@ -215,23 +217,102 @@ def extract(context: ExecutionContext) -> dict[str, Dataset]:
             )
 
             context.storage.write_json(
-                path=f'{dataset_reference.dataset_uri}/manifest.json',
+                path=f'{dataset_reference.dataset_uri}/{METADATA_FILENAME}',
                 value=metadata.model_dump(mode='json'),
             )
 
     logger.info('EXTRACT STEP EXECUTED WITH SUCCESS')
 
-    return asdict(
-        IngestionOutput(
-            run_id=context.run_id,
-            datasets=tuple(dataset_references),
-        )
+    # TODO: return datalake.export_datasets(Layer.BRONZE instead)
+    return IngestionOutput(
+        run_id=context.run_id,
+        datasets=tuple(dataset_references),
     )
+
+
+# TODO: refactor this function to call extractors
+def clean_dataset(context: ExecutionContext, dataset: Dataset) -> list[dict[str, str]]:
+    """Clean and standardized a Bronze dataset into one or more Silver datasets"""
+
+    if dataset.name == 'genres':  # TODO: use constant
+        df_dim_genre = (
+            NdjsonReader(context.storage)
+            .read_all(context.datalake.uri(dataset))
+            .reindex(columns=['id', 'name'])
+        )
+
+        dfs = {'dim_genre': df_dim_genre}
+
+    elif dataset.name == 'movies':  # TODO: use constant
+        df_movies = (
+            NdjsonReader(context.storage)
+            .read_all(context.datalake.uri(dataset))
+            .assign(
+                release_date=lambda df: (
+                    pd.to_datetime(
+                        df['release_date'],
+                        errors='coerce',
+                    ).dt.date
+                )
+            )
+            .drop_duplicates(subset=['id'])
+        )
+        df_dim_movie = df_movies.reindex(
+            columns=[
+                'id',
+                'title',
+                'release_date',
+                'original_language',
+                'overview',
+                'revenue',
+            ]
+        )
+
+        df_bridge_movie_genre = (
+            df_movies[['id', 'genres']]
+            .explode('genres', ignore_index=True)
+            .dropna(subset=['genres'])
+            .rename(columns={'id': 'movie_id'})
+            .assign(genre_id=lambda d: d['genres'].str['id'])[['movie_id', 'genre_id']]
+            .drop_duplicates()
+        )
+
+        dfs = {
+            'dim_movie': df_dim_movie,
+            'bridge_movie_genre': df_bridge_movie_genre,
+        }
+
+    elif dataset.name == 'ratings':  # TODO: use constant
+        df_fact_rating = (
+            NdjsonReader(context.storage)
+            .read_all(context.datalake.uri(dataset))
+            .dropna()
+            .reindex(columns=['user_id', 'movie_id', 'rating', 'timestamp'])
+        )
+
+        # TODO: resolve later
+        #df_fact_rating = df_rating[df_rating['movie_id'].isin(df_dim_movie['id'])]
+
+        dfs = {'fact_rating': df_fact_rating}
+
+    else:
+        raise ValueError(f'Unknown dataset type: {dataset.name}')
+
+    result = []
+    for name, df in dfs.items():
+        output_path = context.storage.uri(
+            f'silver/{name}/{context.run_start_time.date().isoformat()}/'
+        )
+        output_path.mkdir(parents=True, exist_ok=True)
+        df.to_parquet(f'{output_path}/part-0000.parquet', compression='snappy')
+        result.append({'name': name, 'path': output_path})
+
+    return result
 
 
 def clean(
     context: ExecutionContext,
-    datasets: dict[str, dict[str, str]],
+    ingestion_output: IngestionOutput,
 ) -> list[dict[str, str]]:
     """
     Execute the cleaning and standardization step of the ELT process
@@ -240,77 +321,15 @@ def clean(
 
     results = []
 
-    # Temporary fix
-    datasets = {
-        dataset['dataset_name']: dataset['dataset_uri']
-        for dataset in datasets['datasets']
-    }  # TODO: change structure
+    for reference in ingestion_output.datasets:
+        bronze_dataset = context.datalake.load_dataset(reference)
 
-    # TODO: create specific functions for each dataset
-    df_dim_genre = (
-        NdjsonReader(context.storage)
-        .read_all(datasets['genres'])
-        .reindex(columns=['id', 'name'])
-    )
-
-    df_movies = (
-        NdjsonReader(context.storage)
-        .read_all(datasets['movies'])
-        .assign(
-            release_date=lambda df: (
-                pd.to_datetime(
-                    df['release_date'],
-                    errors='coerce',
-                ).dt.date
+        results.extend(
+            clean_dataset(
+                context,
+                bronze_dataset,
             )
         )
-        .drop_duplicates(subset=['id'])
-    )
-
-    df_dim_movie = df_movies.reindex(
-        columns=[
-            'id',
-            'title',
-            'release_date',
-            'original_language',
-            'overview',
-            'revenue',
-        ]
-    )
-
-    df_bridge_movie_genre = (
-        df_movies[['id', 'genres']]
-        .explode('genres', ignore_index=True)
-        .dropna(subset=['genres'])
-        .rename(columns={'id': 'movie_id'})
-        .assign(genre_id=lambda d: d['genres'].str['id'])[['movie_id', 'genre_id']]
-        .drop_duplicates()
-    )
-
-    df_rating = (
-        NdjsonReader(context.storage)
-        .read_all(datasets['ratings'])
-        .dropna()
-        .reindex(columns=['user_id', 'movie_id', 'rating', 'timestamp'])
-    )
-
-    df_fact_rating = df_rating[df_rating['movie_id'].isin(df_dim_movie['id'])]
-
-    dfs = {
-        'dim_genre': df_dim_genre,
-        'dim_movie': df_dim_movie,
-        'bridge_movie_genre': df_bridge_movie_genre,
-        'fact_rating': df_fact_rating,
-    }
-
-    for name, df in dfs.items():
-        output_path = context.storage.uri(
-            f'silver/{name}/{context.run_start_time.date().isoformat()}/'
-        )
-        Path(output_path).mkdir(parents=True, exist_ok=True)
-
-        df.to_parquet(f'{output_path}/part-0000.parquet', compression='snappy')
-        results.append({'name': name, 'path': output_path})
 
     logger.info('CLEAN STEP EXECUTED WITH SUCCESS')
 

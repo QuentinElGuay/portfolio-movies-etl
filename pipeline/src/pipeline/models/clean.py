@@ -12,11 +12,11 @@ class DatasetRecord(BaseModel):
     run_id: RunId
     snapshot_date: date
 
-    @field_validator("run_id")
+    @field_validator('run_id')
     @classmethod
     def validate_uuid_version(cls, value: RunId) -> RunId:
         if value.version != 7:
-            raise ValueError("run_id must be UUIDv7")
+            raise ValueError('run_id must be UUIDv7')
         return value
 
 

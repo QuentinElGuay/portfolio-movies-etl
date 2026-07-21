@@ -42,6 +42,7 @@ class NdjsonReader:
         Returns:
             A single combined pandas DataFrame.
         """
+        print(folder_path)
         files = self.storage.list(folder_path, extension)
 
         if not files:

@@ -18,7 +18,7 @@ class ObjectStorage(ABC):
         ...
 
     @abstractmethod
-    def uri(self, path: str) -> str:
+    def uri(self, path: str) -> Path:
         """Return the URI of an object."""
         ...
 
@@ -84,8 +84,8 @@ class LocalStorage(ObjectStorage):
 
         return str(destination)
 
-    def uri(self, path: str) -> str:
-        return str(Path(self.root) / path)
+    def uri(self, path: str) -> Path:
+        return Path(self.root) / path
 
     def exists(self, path: str) -> bool:
         return (Path(self.root) / path).exists()

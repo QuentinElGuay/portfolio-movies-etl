@@ -4,6 +4,9 @@ from enum import StrEnum
 from pydantic import BaseModel
 
 
+METADATA_FILENAME = 'metadata.json'
+
+
 class IngestionStatus(StrEnum):
     """Endpoint download status."""
 
