@@ -1,10 +1,11 @@
+from abc import ABC
 from datetime import date, datetime
 from enum import StrEnum
 
 from pydantic import BaseModel
 
 
-METADATA_FILENAME = 'metadata.json'
+INGESTION_METADATA_FILENAME = 'metadata.json'
 
 
 class IngestionStatus(StrEnum):
@@ -15,12 +16,19 @@ class IngestionStatus(StrEnum):
     FAILED = 'failed'
 
 
-class IngestionMetadata(BaseModel):
+class DatasetMetadata(BaseModel, ABC):
     run_id: str
     dataset: str
     layer: str
-    endpoint: str
     snapshot_date: date
+
+
+class IngestionMetadata(DatasetMetadata):
+    run_id: str
+    dataset: str
+    layer: str
+    snapshot_date: date
+    endpoint: str
 
     started_at: datetime
     finished_at: datetime

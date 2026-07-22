@@ -3,11 +3,12 @@ import json
 import logging
 from pathlib import Path
 import shutil
-from typing import Any
+from typing import Any, Protocol
 
 logger = logging.getLogger(f'pipeline.{__name__}')
 
 
+# TODO: convert to protocol
 class ObjectStorage(ABC):
     def __init__(self, root: str):
         self.root = root

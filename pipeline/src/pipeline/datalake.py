@@ -4,10 +4,15 @@ from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
 import json
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 from typing import Iterator
 
-from pipeline.models.metadata import METADATA_FILENAME, IngestionMetadata
+from pipeline.models.ingest import Genre, Movie, Rating
+from pipeline.models.metadata import (
+    INGESTION_METADATA_FILENAME,
+    DatasetMetadata,
+    IngestionMetadata,
+)
 from pipeline.storage.object_storage import ObjectStorage
 
 
@@ -31,6 +36,7 @@ class Layer(StrEnum):
 class DatasetReference:
     dataset_name: str
     dataset_uri: str
+    metadata: DatasetMetadata
 
 
 @dataclass
@@ -48,6 +54,7 @@ class DataLakeConfig:
     layers: dict[Layer, LayerConfig]
 
 
+# TODO: check duplicated properties with DatasetMetadata
 @dataclass(frozen=True, slots=True)
 class Dataset:
     """Logical representation of a dataset."""
@@ -56,7 +63,7 @@ class Dataset:
     layer: Layer
     snapshot_date: date
     run_id: str | None
-    # TODO: Add metadata object
+    metadata: DatasetMetadata | None  # check if None makes sense
 
     def to_dict(self) -> dict[str, str]:
         return {
@@ -104,7 +111,9 @@ class DataLake:
 
         # TODO: create a storage.read_json(path) function
         with open(
-             self.storage.uri(reference.dataset_uri) / METADATA_FILENAME, 'r', encoding='utf-8'
+            self.storage.uri(reference.dataset_uri) / INGESTION_METADATA_FILENAME,
+            'r',
+            encoding='utf-8',
         ) as file:
             metadata = IngestionMetadata.model_validate(json.load(file))
 
@@ -145,3 +154,10 @@ class DataLake:
             # self.config.layers[dataset.layer].root,  # TODO: storage isn't currently multi-root
             self.prefix(dataset),
         )
+
+    # TODO: import this information from file configuration
+    HARDCODED_SCHEMA_REGISTRY = {
+        'genre': {1: Genre},
+        'movie': {1: Movie},
+        'rating': {1: Rating},
+    }

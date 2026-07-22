@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
 
-from pipeline.models.types import GenreId, MovieId, UserId
+from pipeline.models.type import GenreId, MovieId, UserId
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 

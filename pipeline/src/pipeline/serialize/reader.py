@@ -1,8 +1,10 @@
 import logging
+from typing import Iterator
 
-import pandas as pd
+import pyarrow as pa
+from pydantic import BaseModel
 
-from pipeline.datalake import DataLake, Dataset
+from pipeline.models.pyarrow import schema_from_pydantic
 from pipeline.storage.object_storage import ObjectStorage
 
 
@@ -23,48 +25,32 @@ class NdjsonReader:
         """
         self.storage = storage
 
-    def read_all(
+    def read(
         self,
         folder_path: str,
+        api_model: BaseModel,
         extension: str = 'ndjson.gz',
-        columns: list = [],
-        **kwargs,
-    ) -> pd.DataFrame:
+    ) -> Iterator[pa.Table]:
         """
         Reads all found NDJSON files and concatenates them into one DataFrame.
 
         Args:
             folder_path (Path): Path to the directory containing the files.
-            extensions (str): File extensions to search for among '.ndjson', '.jsonl', '.ndjson.gz' and '.jsonl.gz'
-            columns (list[str]): Optional list of column names to keep (saves memory).
-            kwargs (Any): Additional arguments passed directly to pd.read_json() (e.g., encoding='utf-8', dtype={'id': int}).
+            api_model (Pydantic.BaseModel): The Pydantic API model used to write the NDJSON files.
+            extensions (str): File extensions to search for among '.ndjson', '.jsonl', '.ndjson.gz' and '.jsonl.gz'.
 
         Returns:
-            A single combined pandas DataFrame.
+            An iterator on PyArrow tables.
         """
-        print(folder_path)
         files = self.storage.list(folder_path, extension)
 
         if not files:
             logger.warning('Warning: No matching NDJSON files found in %s', folder_path)
 
-        df_list = []
-        for file in files:
-            try:
-                df_chunk = pd.read_json(file, lines=True, compression='infer', **kwargs)
-
-                if len(columns):
-                    existing_cols = [c for c in columns if c in df_chunk.columns]
-                    df_chunk = df_chunk[existing_cols]
-
-                if not df_chunk.empty:
-                    df_list.append(df_chunk)
-
-            except Exception as e:
-                logging.error('Error reading file %s: %s', file, e)
-                continue
-
-        if not df_list:
-            return pd.DataFrame()
-
-        return pd.concat(df_list, ignore_index=True)
+        for file_path in files:
+            yield pa.json.read_json(
+                file_path,
+                parse_options=pa.json.ParseOptions(
+                    explicit_schema=schema_from_pydantic(api_model)
+                ),
+            )

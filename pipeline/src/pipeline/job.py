@@ -3,8 +3,9 @@ from datetime import UTC, datetime, timezone  # TODO: use TZ configuration
 import logging
 import os
 from pathlib import Path
+from pipeline.clean.extractor import Extractor, ExtractorFactory
 from pipeline.models.metadata import (
-    METADATA_FILENAME,
+    INGESTION_METADATA_FILENAME,
     IngestionMetadata,
     IngestionStatus,
 )
@@ -15,7 +16,13 @@ import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
 
-from pipeline.datalake import DataLakeConfig, Dataset, DatasetReference, FileFormat, LayerConfig
+from pipeline.datalake import (
+    DataLakeConfig,
+    Dataset,
+    DatasetReference,
+    FileFormat,
+    LayerConfig,
+)
 from pipeline.ingest.api import (
     AUTH_ENDPOINT,
     GENRES_ENDPOINT,
@@ -29,7 +36,7 @@ from pipeline.config import Settings
 from pipeline.datalake import DataLake, Layer
 from pipeline.load.database import Database
 from pipeline.serialize.reader import NdjsonReader
-from pipeline.serialize.writer import NdjsonWriter, WritersManager
+from pipeline.serialize.writer import NdjsonWriter, ParquetWriter, WritersManager
 from pipeline.storage.object_storage import ObjectStorage, StorageFactory
 
 logger = logging.getLogger(__name__)
@@ -99,7 +106,7 @@ def ingest_endpoint(
 
     try:
         with WritersManager(
-            datalake=context.datalake, writer_factory=NdjsonWriter
+            datalake=context.datalake, writer_factory=NdjsonWriter, model=endpoint.model
         ) as writers:
             for record in api_client.get_endpoint(endpoint.path):
                 unexpected_fields.update(record.keys() - expected_fields)
@@ -217,7 +224,7 @@ def extract(context: ExecutionContext) -> IngestionOutput:
             )
 
             context.storage.write_json(
-                path=f'{dataset_reference.dataset_uri}/{METADATA_FILENAME}',
+                path=f'{dataset_reference.dataset_uri}/{INGESTION_METADATA_FILENAME}',
                 value=metadata.model_dump(mode='json'),
             )
 
@@ -233,6 +240,19 @@ def extract(context: ExecutionContext) -> IngestionOutput:
 # TODO: refactor this function to call extractors
 def clean_dataset(context: ExecutionContext, dataset: Dataset) -> list[dict[str, str]]:
     """Clean and standardized a Bronze dataset into one or more Silver datasets"""
+    # TODO: call datalake method instead and get version from metadata file
+    model = context.datalake.HARDCODED_SCHEMA_REGISTRY[dataset.name][1]
+    extractor = ExtractorFactory.create(dataset)
+
+    with WritersManager(
+        datalake=context.datalake, writer_factory=ParquetWriter, model=model
+    ) as writers:
+        for table in NdjsonReader(context.storage).read(
+            context.datalake.uri(dataset),
+            model,
+        ):
+            for extracted in extractor(table):
+                writers.write(extracted)
 
     if dataset.name == 'genres':  # TODO: use constant
         df_dim_genre = (
@@ -291,7 +311,7 @@ def clean_dataset(context: ExecutionContext, dataset: Dataset) -> list[dict[str,
         )
 
         # TODO: resolve later
-        #df_fact_rating = df_rating[df_rating['movie_id'].isin(df_dim_movie['id'])]
+        # df_fact_rating = df_rating[df_rating['movie_id'].isin(df_dim_movie['id'])]
 
         dfs = {'fact_rating': df_fact_rating}
 
