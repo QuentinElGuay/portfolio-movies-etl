@@ -245,7 +245,9 @@ def clean_dataset(context: ExecutionContext, dataset: Dataset) -> list[dict[str,
     extractor = ExtractorFactory.create(dataset)
 
     with WritersManager(
-        datalake=context.datalake, writer_factory=ParquetWriter, model=model
+        datalake=context.datalake,
+        writer_factory=ParquetWriter,
+        model=model,  # use output model
     ) as writers:
         for table in NdjsonReader(context.storage).read(
             context.datalake.uri(dataset),
