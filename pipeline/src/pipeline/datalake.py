@@ -3,8 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
+import json
 from pathlib import PurePosixPath
+from typing import Iterator
 
+from pipeline.models.ingest import Genre, Movie, Rating
+from pipeline.models.metadata import (
+    INGESTION_METADATA_FILENAME,
+    DatasetMetadata,
+    IngestionMetadata,
+)
 from pipeline.storage.object_storage import ObjectStorage
 
 
@@ -24,6 +32,13 @@ class Layer(StrEnum):
     QUARANTINE = 'quarantine'
 
 
+@dataclass(frozen=True)
+class DatasetReference:
+    dataset_name: str
+    dataset_uri: str
+    metadata: DatasetMetadata
+
+
 @dataclass
 class LayerConfig:
     root: str
@@ -39,6 +54,7 @@ class DataLakeConfig:
     layers: dict[Layer, LayerConfig]
 
 
+# TODO: check duplicated properties with DatasetMetadata
 @dataclass(frozen=True, slots=True)
 class Dataset:
     """Logical representation of a dataset."""
@@ -47,6 +63,7 @@ class Dataset:
     layer: Layer
     snapshot_date: date
     run_id: str | None
+    metadata: DatasetMetadata | None  # check if None makes sense
 
     def to_dict(self) -> dict[str, str]:
         return {
@@ -80,9 +97,33 @@ class DataLake:
         self.config = datalake_config
         self.storage = storage
 
-    def dataset(self, name: str, layer: Layer) -> Dataset:
+    # TODO: change it to access existing Dataset or create
+    def get_dataset(self, name: str, layer: Layer) -> Dataset:
         """Return a dataset declaration."""
         return Dataset(name=name, layer=layer)
+
+    def export_dataset_references(layer: Layer) -> Iterator[DatasetReference]:
+        """Return a reference for all the datasets registered in a layer"""
+        raise NotImplementedError
+
+    def load_dataset(self, reference: DatasetReference) -> Dataset:
+        """Register a dataset from the DataLake and return its metadata"""
+
+        # TODO: create a storage.read_json(path) function
+        with open(
+            self.storage.uri(reference.dataset_uri) / INGESTION_METADATA_FILENAME,
+            'r',
+            encoding='utf-8',
+        ) as file:
+            metadata = IngestionMetadata.model_validate(json.load(file))
+
+        return Dataset(
+            name=metadata.dataset,
+            layer=metadata.layer,
+            run_id=metadata.run_id,
+            snapshot_date=metadata.snapshot_date,
+            # metadata=metadata,  # TODO: add metadata to dataset
+        )
 
     def prefix(self, dataset: Dataset) -> str:
         """
@@ -106,9 +147,17 @@ class DataLake:
 
         return str(prefix)
 
+    # Evaluate if makes sense
     def uri(self, dataset: Dataset) -> str:
         """Return the storage URI for a dataset."""
         return self.storage.uri(
-            self.config.layers[dataset.layer].root,
+            # self.config.layers[dataset.layer].root,  # TODO: storage isn't currently multi-root
             self.prefix(dataset),
         )
+
+    # TODO: import this information from file configuration
+    HARDCODED_SCHEMA_REGISTRY = {
+        'genre': {1: Genre},
+        'movie': {1: Movie},
+        'rating': {1: Rating},
+    }

@@ -2,12 +2,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
 
+from pipeline.models.type import GenreId, MovieId, UserId
 from pydantic import BaseModel, Field, ConfigDict, field_validator
-
-
-GenreId = Annotated[int, Field(gt=0)]
-MovieId = Annotated[int, Field(gt=0)]
-UserId = Annotated[int, Field(gt=0)]
 
 
 class Genre(BaseModel):
